@@ -1,0 +1,10 @@
+[package]
+name = "aries"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "0.34.3"
+tokio = { version = "1.52.3", features = ["rt", "rt-multi-thread"] }
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "postgres", "uuid", "chrono", "migrate"] }
+postgresql_embedded = "0.20.2"
