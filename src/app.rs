@@ -4,7 +4,7 @@ use eframe::egui;
 use postgres::Client;
 
 use crate::presentation::{
-    students,
+    students::{self, StudentsState},
     teachers::{self, TeachersState},
 };
 
@@ -17,6 +17,7 @@ enum View {
 pub struct App {
     client:         Arc<Mutex<Client>>,
     current_view:   View,
+    students_state: StudentsState,
     teachers_state: TeachersState,
 }
 
@@ -25,6 +26,7 @@ impl App {
         Self {
             client,
             current_view:   View::Teachers,
+            students_state: StudentsState::default(),
             teachers_state: TeachersState::default(),
         }
     }
@@ -41,7 +43,7 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.current_view {
             View::Teachers => teachers::show(ui, &self.client, &mut self.teachers_state),
-            View::Students => students::show(ui),
+            View::Students => students::show(ui, &self.client, &mut self.students_state),
         });
     }
 }
