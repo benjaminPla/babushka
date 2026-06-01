@@ -1,0 +1,1 @@
+- [ ] use `sqlx::migrate!` on prod, add some loading ui

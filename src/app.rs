@@ -1,7 +1,12 @@
-use eframe::egui;
-use sqlx::PgPool;
+use std::sync::{Arc, Mutex};
 
-use crate::views::{students, teachers};
+use eframe::egui;
+use postgres::Client;
+
+use crate::presentation::{
+    students,
+    teachers::{self, TeachersState},
+};
 
 #[derive(PartialEq)]
 enum View {
@@ -10,15 +15,17 @@ enum View {
 }
 
 pub struct App {
-    pool: PgPool,
-    current_view: View,
+    client:         Arc<Mutex<Client>>,
+    current_view:   View,
+    teachers_state: TeachersState,
 }
 
 impl App {
-    pub fn new(pool: PgPool) -> Self {
+    pub fn new(client: Arc<Mutex<Client>>) -> Self {
         Self {
-            pool,
-            current_view: View::Teachers,
+            client,
+            current_view:   View::Teachers,
+            teachers_state: TeachersState::default(),
         }
     }
 }
@@ -33,8 +40,8 @@ impl eframe::App for App {
         });
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.current_view {
-            View::Teachers => teachers::show(ui, &self.pool),
-            View::Students => students::show(ui, &self.pool),
+            View::Teachers => teachers::show(ui, &self.client, &mut self.teachers_state),
+            View::Students => students::show(ui),
         });
     }
 }

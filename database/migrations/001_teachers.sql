@@ -24,10 +24,10 @@ CREATE TABLE IF NOT EXISTS teachers (
         UNIQUE (phone),
 
     CONSTRAINT teachers_first_name_not_blank
-        CHECK (LENGTH(TRIM(first_name)) > 0),
+        CHECK (LENGTH(TRIM(first_name)) > 3),
 
     CONSTRAINT teachers_last_name_not_blank
-        CHECK (LENGTH(TRIM(last_name)) > 0),
+        CHECK (LENGTH(TRIM(last_name)) > 3),
 
     CONSTRAINT teachers_email_format
         CHECK (email ~* '^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$'),
