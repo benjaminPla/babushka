@@ -30,6 +30,7 @@ impl CourseCreateUseCase {
         if input.price_cents <= 0       { return Err(CourseAppError::Validation("precio debe ser mayor a 0".into())); }
         let course = Course::new(input.teacher_id, input.name, input.age_group, input.capacity, input.price_cents, input.notes);
         self.course_repo.create(&course)?;
+        log::info!("[course] created: id={}", course.id());
         Ok(())
     }
 }

@@ -42,6 +42,7 @@ impl StudentUpdateUseCase {
         let phone       = Phone::new(input.phone)?;
         student.update(input.age_group, email, first_name, last_name, input.notes, phone);
         self.student_repo.update(&student)?;
+        log::info!("[student] updated: id={}", input.id);
         Ok(())
     }
 }

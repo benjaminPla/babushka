@@ -32,6 +32,7 @@ impl CourseUpdateUseCase {
         let mut course = self.course_repo.get_by_id(input.id)?;
         course.update(input.teacher_id, input.name, input.age_group, input.capacity, input.price_cents, input.notes);
         self.course_repo.update(&course)?;
+        log::info!("[course] updated: id={}", input.id);
         Ok(())
     }
 }

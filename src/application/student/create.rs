@@ -38,6 +38,7 @@ impl StudentCreateUseCase {
         let phone      = Phone::new(input.phone)?;
         let student    = Student::new(input.age_group, email, first_name, last_name, input.notes, phone);
         self.student_repo.create(&student)?;
+        log::info!("[student] created: id={}", student.id());
         Ok(())
     }
 }

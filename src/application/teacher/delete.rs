@@ -18,6 +18,7 @@ impl TeacherDeleteUseCase {
 
     pub fn execute(&self, id: Uuid) -> Result<(), TeacherAppError> {
         self.teacher_repo.delete(id)?;
+        log::info!("[teacher] deleted: id={}", id);
         Ok(())
     }
 }

@@ -21,8 +21,10 @@ impl EnrollmentUpdateStatusUseCase {
 
     pub fn execute(&self, input: EnrollmentUpdateStatusInput) -> Result<(), EnrollmentAppError> {
         let mut enrollment = self.enrollment_repo.get_by_id(input.id)?;
+        let status_label = input.status.as_db_str().to_owned();
         enrollment.set_status(input.status);
         self.enrollment_repo.update(&enrollment)?;
+        log::info!("[enrollment] status updated: id={} status={}", input.id, status_label);
         Ok(())
     }
 }

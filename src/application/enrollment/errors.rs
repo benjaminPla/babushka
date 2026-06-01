@@ -2,11 +2,11 @@ use crate::domain::enrollment::repository::EnrollmentRepoError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EnrollmentAppError {
-    #[error("validation error: {0}")]
+    #[error("{0}")]
     Validation(String),
-    #[error("database error: {0}")]
-    Database(String),
-    #[error("not found")]
+    #[error("error de base de datos")]
+    Database,
+    #[error("inscripción no encontrada")]
     NotFound,
     #[error("el grupo de edad del alumno no coincide con el del curso")]
     AgeGroupMismatch,
@@ -17,8 +17,14 @@ pub enum EnrollmentAppError {
 impl From<EnrollmentRepoError> for EnrollmentAppError {
     fn from(e: EnrollmentRepoError) -> Self {
         match e {
-            EnrollmentRepoError::Database(msg) => Self::Database(msg),
-            EnrollmentRepoError::NotFound(_)   => Self::NotFound,
+            EnrollmentRepoError::Database(msg) => {
+                log::error!("[enrollment] repo error: {msg}");
+                Self::Database
+            }
+            EnrollmentRepoError::NotFound(id) => {
+                log::warn!("[enrollment] not found: {id}");
+                Self::NotFound
+            }
         }
     }
 }

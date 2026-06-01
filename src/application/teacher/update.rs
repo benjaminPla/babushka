@@ -41,6 +41,7 @@ impl TeacherUpdateUseCase {
         let phone       = Phone::new(input.phone)?;
         teacher.update(email, first_name, last_name, input.notes, phone);
         self.teacher_repo.update(&teacher)?;
+        log::info!("[teacher] updated: id={}", input.id);
         Ok(())
     }
 }

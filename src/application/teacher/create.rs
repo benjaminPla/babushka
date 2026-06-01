@@ -37,6 +37,7 @@ impl TeacherCreateUseCase {
         let phone      = Phone::new(input.phone)?;
         let teacher    = Teacher::new(email, first_name, last_name, input.notes, phone);
         self.teacher_repo.create(&teacher)?;
+        log::info!("[teacher] created: id={}", teacher.id());
         Ok(())
     }
 }

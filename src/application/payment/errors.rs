@@ -2,19 +2,25 @@ use crate::domain::payment::repository::PaymentRepoError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PaymentAppError {
-    #[error("validation error: {0}")]
+    #[error("{0}")]
     Validation(String),
-    #[error("database error: {0}")]
-    Database(String),
-    #[error("not found")]
+    #[error("error de base de datos")]
+    Database,
+    #[error("pago no encontrado")]
     NotFound,
 }
 
 impl From<PaymentRepoError> for PaymentAppError {
     fn from(e: PaymentRepoError) -> Self {
         match e {
-            PaymentRepoError::Database(msg) => Self::Database(msg),
-            PaymentRepoError::NotFound(_)   => Self::NotFound,
+            PaymentRepoError::Database(msg) => {
+                log::error!("[payment] repo error: {msg}");
+                Self::Database
+            }
+            PaymentRepoError::NotFound(id) => {
+                log::warn!("[payment] not found: {id}");
+                Self::NotFound
+            }
         }
     }
 }

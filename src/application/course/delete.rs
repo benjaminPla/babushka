@@ -13,6 +13,7 @@ impl CourseDeleteUseCase {
 
     pub fn execute(&self, id: Uuid) -> Result<(), CourseAppError> {
         self.course_repo.delete(id)?;
+        log::info!("[course] deleted: id={}", id);
         Ok(())
     }
 }

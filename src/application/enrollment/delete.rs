@@ -13,6 +13,7 @@ impl EnrollmentDeleteUseCase {
 
     pub fn execute(&self, id: Uuid) -> Result<(), EnrollmentAppError> {
         self.enrollment_repo.delete(id)?;
+        log::info!("[enrollment] deleted: id={}", id);
         Ok(())
     }
 }

@@ -28,6 +28,7 @@ impl PaymentCreateUseCase {
         }
         let payment = Payment::new(input.enrollment_id, input.amount_cents, input.due_date, input.notes);
         self.payment_repo.create(&payment)?;
+        log::info!("[payment] created: id={} enrollment={} due={}", payment.id(), input.enrollment_id, input.due_date);
         Ok(())
     }
 }

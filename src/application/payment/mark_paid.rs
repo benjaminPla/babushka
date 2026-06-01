@@ -13,6 +13,7 @@ impl PaymentMarkPaidUseCase {
 
     pub fn execute(&self, id: Uuid) -> Result<(), PaymentAppError> {
         self.payment_repo.mark_paid(id)?;
+        log::info!("[payment] marked paid: id={}", id);
         Ok(())
     }
 }

@@ -10,11 +10,11 @@ use crate::domain::{
 
 #[derive(Debug, thiserror::Error)]
 pub enum TeacherAppError {
-    #[error("validation error: {0}")]
+    #[error("{0}")]
     Validation(String),
-    #[error("database error: {0}")]
-    Database(String),
-    #[error("not found")]
+    #[error("error de base de datos")]
+    Database,
+    #[error("profesor no encontrado")]
     NotFound,
 }
 
@@ -26,8 +26,14 @@ impl From<PhoneError>     for TeacherAppError { fn from(e: PhoneError)     -> Se
 impl From<TeacherRepoError> for TeacherAppError {
     fn from(e: TeacherRepoError) -> Self {
         match e {
-            TeacherRepoError::Database(msg) => Self::Database(msg),
-            TeacherRepoError::NotFound(_)   => Self::NotFound,
+            TeacherRepoError::Database(msg) => {
+                log::error!("[teacher] repo error: {msg}");
+                Self::Database
+            }
+            TeacherRepoError::NotFound(id) => {
+                log::warn!("[teacher] not found: {id}");
+                Self::NotFound
+            }
         }
     }
 }
