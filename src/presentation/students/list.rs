@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use chrono::Local;
+use crate::presentation::fmt_dt;
 use eframe::egui;
 use postgres::Client;
 use uuid::Uuid;
@@ -64,8 +64,8 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                     state.email      = s.email.clone();
                     state.phone      = s.phone.clone();
                     state.notes      = s.notes.clone().unwrap_or_default();
-                    state.created_at = s.created_at.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string();
-                    state.updated_at = s.updated_at.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string();
+                    state.created_at = fmt_dt(s.created_at);
+                    state.updated_at = fmt_dt(s.updated_at);
                     state.editing_id = Some(id);
                     state.error      = None;
                     state.mode       = Mode::Edit;

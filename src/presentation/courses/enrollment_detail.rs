@@ -1,6 +1,8 @@
 use std::sync::{Arc, Mutex};
 
-use chrono::{Local, NaiveDate};
+use chrono::NaiveDate;
+
+use crate::presentation::fmt_dt;
 use eframe::egui;
 use postgres::Client;
 use uuid::Uuid;
@@ -118,7 +120,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                 ui.colored_label(color, text);
 
                 match p.paid_at {
-                    Some(dt) => ui.label(dt.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string()),
+                    Some(dt) => ui.label(fmt_dt(dt)),
                     None     => ui.label("—"),
                 };
 

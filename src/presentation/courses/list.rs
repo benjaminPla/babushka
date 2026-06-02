@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use chrono::Local;
+use crate::presentation::fmt_dt;
 use eframe::egui;
 use postgres::Client;
 use uuid::Uuid;
@@ -82,8 +82,8 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                     state.capacity     = c.capacity.to_string();
                     state.price        = format_price(c.price_cents);
                     state.course_notes = c.notes.clone().unwrap_or_default();
-                    state.created_at   = c.created_at.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string();
-                    state.updated_at   = c.updated_at.with_timezone(&Local).format("%Y-%m-%d %H:%M").to_string();
+                    state.created_at   = fmt_dt(c.created_at);
+                    state.updated_at   = fmt_dt(c.updated_at);
                     state.error        = None;
                     if let Ok(ts) = crate::application::teacher::get_all::TeacherGetAllUseCase::new(
                         super::make_teacher_repo(client)
