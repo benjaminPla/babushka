@@ -21,6 +21,8 @@ use log4rs::{
 };
 use postgresql_embedded::PostgreSQL;
 
+use app::{AppWrapper, InitResult, LoadingStatus};
+
 fn init_logger() {
     let log_dir = dirs::data_local_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
@@ -33,7 +35,7 @@ fn init_logger() {
     let archive_pat = log_dir.join("aries.{}.log").to_string_lossy().into_owned();
 
     let roller   = FixedWindowRoller::builder().build(&archive_pat, 5).unwrap();
-    let trigger  = SizeTrigger::new(5 * 1024 * 1024); // 5 MB
+    let trigger  = SizeTrigger::new(5 * 1024 * 1024);
     let policy   = CompoundPolicy::new(Box::new(trigger), Box::new(roller));
 
     let appender = RollingFileAppender::builder()
@@ -50,9 +52,9 @@ fn init_logger() {
 }
 
 // NOTE: only dev; prod must use a proper migration tool
-fn run_migrations(client: &mut postgres::Client) {
+fn run_migrations(client: &mut postgres::Client) -> Result<(), String> {
     let mut entries: Vec<_> = std::fs::read_dir("database/migrations")
-        .expect("database/migrations not found")
+        .map_err(|e| e.to_string())?
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().map_or(false, |ext| ext == "sql"))
         .collect();
@@ -61,50 +63,72 @@ fn run_migrations(client: &mut postgres::Client) {
 
     for entry in entries {
         let path = entry.path();
-        let sql  = std::fs::read_to_string(&path)
-            .unwrap_or_else(|_| panic!("failed to read {:?}", path));
-        client
-            .batch_execute(&sql)
-            .unwrap_or_else(|e| panic!("failed to run {:?}: {e}", path));
+        let sql  = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+        client.batch_execute(&sql).map_err(|e| format!("{path:?}: {e}"))?;
     }
+    Ok(())
 }
 
 fn main() {
     init_logger();
     log::info!("starting aries");
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let status = Arc::new(Mutex::new(LoadingStatus {
+        message:  "Initializing…".into(),
+        progress: 0.0,
+        result:   None,
+    }));
 
-    let (pg, url) = rt.block_on(async {
+    let status_bg = Arc::clone(&status);
+    std::thread::spawn(move || {
+        let set = |msg: &str, prog: f32| {
+            let mut s = status_bg.lock().unwrap();
+            s.message  = msg.into();
+            s.progress = prog;
+        };
+        let fail = |e: String| {
+            status_bg.lock().unwrap().result = Some(Err(e));
+        };
+
+        let rt = match tokio::runtime::Runtime::new() {
+            Ok(rt) => rt,
+            Err(e) => { fail(e.to_string()); return; }
+        };
+
+        set("Setting up database…", 0.1);
         let mut pg = PostgreSQL::default();
-        pg.setup().await.expect("failed to setup postgres");
-        pg.start().await.expect("failed to start postgres");
+        if let Err(e) = rt.block_on(pg.setup()) { fail(e.to_string()); return; }
 
-        if !pg.database_exists("aries").await.unwrap_or(false) {
-            pg.create_database("aries").await.expect("failed to create database");
+        set("Starting database…", 0.3);
+        if let Err(e) = rt.block_on(pg.start()) { fail(e.to_string()); return; }
+
+        set("Preparing database…", 0.55);
+        if !rt.block_on(pg.database_exists("aries")).unwrap_or(false) {
+            if let Err(e) = rt.block_on(pg.create_database("aries")) { fail(e.to_string()); return; }
         }
 
         let url = pg.settings().url("aries");
-        (pg, url)
+
+        set("Connecting…", 0.7);
+        let mut client = match postgres::Client::connect(&url, postgres::NoTls) {
+            Ok(c)  => c,
+            Err(e) => { fail(e.to_string()); return; }
+        };
+
+        set("Running migrations…", 0.85);
+        if let Err(e) = run_migrations(&mut client) { fail(e); return; }
+
+        let mut s  = status_bg.lock().unwrap();
+        s.progress = 1.0;
+        s.result   = Some(Ok(InitResult { pg, client, rt }));
     });
-
-    let mut client = postgres::Client::connect(&url, postgres::NoTls)
-        .expect("failed to connect to postgres");
-
-    run_migrations(&mut client);
-
-    let client = Arc::new(Mutex::new(client));
 
     eframe::run_native(
         "Aries",
         eframe::NativeOptions::default(),
-        Box::new(move |_cc| Ok(Box::new(app::App::new(client)))),
+        Box::new(move |_cc| Ok(Box::new(AppWrapper::new(status)))),
     )
     .expect("failed to start app");
 
     log::info!("shutting down aries");
-
-    rt.block_on(async {
-        pg.stop().await.expect("failed to stop postgres");
-    });
 }

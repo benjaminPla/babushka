@@ -1,3 +1,4 @@
 - [ ] use `sqlx::migrate!` on prod, add some loading ui
+- [ ] do not delete cascade techers if they have courses, courses if they have students and so on
 - [ ] do not use UTC, use argentina timezone
 - [x] check teachers.update_at (it was missing the trigger on sql)

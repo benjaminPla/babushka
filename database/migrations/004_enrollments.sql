@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS enrollments (
     status      enrollment_status NOT NULL DEFAULT 'active',
     enrolled_at TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    notes       VARCHAR(500),
 
     CONSTRAINT enrollments_unique
         UNIQUE (student_id, course_id)

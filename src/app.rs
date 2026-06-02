@@ -2,12 +2,102 @@ use std::sync::{Arc, Mutex};
 
 use eframe::egui;
 use postgres::Client;
+use postgresql_embedded::PostgreSQL;
+use tokio::runtime::Runtime;
 
 use crate::presentation::{
     courses::{self, CoursesState},
     students::{self, StudentsState},
     teachers::{self, TeachersState},
 };
+
+pub struct LoadingStatus {
+    pub message:  String,
+    pub progress: f32,
+    pub result:   Option<Result<InitResult, String>>,
+}
+
+pub struct InitResult {
+    pub pg:     PostgreSQL,
+    pub client: Client,
+    pub rt:     Runtime,
+}
+
+enum AppState {
+    Loading(Arc<Mutex<LoadingStatus>>),
+    Ready { app: App, pg: PostgreSQL, rt: Runtime },
+    Failed(String),
+}
+
+pub struct AppWrapper {
+    state: AppState,
+}
+
+impl AppWrapper {
+    pub fn new(status: Arc<Mutex<LoadingStatus>>) -> Self {
+        Self { state: AppState::Loading(status) }
+    }
+}
+
+impl eframe::App for AppWrapper {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        let should_transition = match &self.state {
+            AppState::Loading(s) => s.lock().unwrap().result.is_some(),
+            _ => false,
+        };
+
+        if should_transition {
+            let old = std::mem::replace(&mut self.state, AppState::Failed(String::new()));
+            if let AppState::Loading(s) = old {
+                match s.lock().unwrap().result.take() {
+                    Some(Ok(init)) => {
+                        self.state = AppState::Ready {
+                            app: App::new(Arc::new(Mutex::new(init.client))),
+                            pg:  init.pg,
+                            rt:  init.rt,
+                        };
+                    }
+                    Some(Err(e)) => self.state = AppState::Failed(e),
+                    None => unreachable!(),
+                }
+            }
+        }
+
+        match &mut self.state {
+            AppState::Loading(status) => {
+                let status = status.lock().unwrap();
+                ui.ctx().request_repaint();
+                let available_height = ui.available_height();
+                ui.add_space(available_height / 3.0);
+                ui.vertical_centered(|ui| {
+                    ui.heading("Aries");
+                    ui.add_space(8.0);
+                    ui.label(&status.message);
+                    ui.add_space(8.0);
+                    ui.add(
+                        egui::ProgressBar::new(status.progress)
+                            .animate(true)
+                            .desired_width(300.0),
+                    );
+                });
+            }
+            AppState::Ready { app, .. } => app.ui(ui, frame),
+            AppState::Failed(e) => {
+                let available_height = ui.available_height();
+                ui.add_space(available_height / 3.0);
+                ui.vertical_centered(|ui| {
+                    ui.colored_label(egui::Color32::RED, format!("Failed to start: {e}"));
+                });
+            }
+        }
+    }
+
+    fn on_exit(&mut self) {
+        if let AppState::Ready { pg, rt, .. } = &mut self.state {
+            rt.block_on(async { pg.stop().await.ok(); });
+        }
+    }
+}
 
 #[derive(PartialEq)]
 enum View {
@@ -16,7 +106,7 @@ enum View {
     Courses,
 }
 
-pub struct App {
+struct App {
     client:         Arc<Mutex<Client>>,
     current_view:   View,
     courses_state:  CoursesState,
@@ -25,7 +115,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(client: Arc<Mutex<Client>>) -> Self {
+    fn new(client: Arc<Mutex<Client>>) -> Self {
         Self {
             client,
             current_view:   View::Courses,
@@ -34,16 +124,14 @@ impl App {
             teachers_state: TeachersState::default(),
         }
     }
-}
 
-impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         egui::Panel::left("menu").show_inside(ui, |ui| {
             ui.heading("Aries");
             ui.separator();
-            ui.selectable_value(&mut self.current_view, View::Courses,   "Cursos");
-            ui.selectable_value(&mut self.current_view, View::Teachers,  "Profesores");
-            ui.selectable_value(&mut self.current_view, View::Students,  "Alumnos");
+            ui.selectable_value(&mut self.current_view, View::Courses,  "Cursos");
+            ui.selectable_value(&mut self.current_view, View::Teachers, "Profesores");
+            ui.selectable_value(&mut self.current_view, View::Students, "Alumnos");
         });
 
         egui::CentralPanel::default().show_inside(ui, |ui| match self.current_view {
