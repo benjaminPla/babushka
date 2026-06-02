@@ -17,6 +17,14 @@ impl PaymentPgRepo {
     pub fn new(client: Arc<Mutex<Client>>) -> Self { Self { client } }
 }
 
+fn pg_err(e: postgres::Error) -> PaymentRepoError {
+    let msg = e
+        .as_db_error()
+        .map(|db| format!("{} (code={})", db.message(), db.code().code()))
+        .unwrap_or_else(|| format!("{e:?}"));
+    PaymentRepoError::Database(msg)
+}
+
 fn row_to_payment(row: &Row) -> Result<Payment, PaymentRepoError> {
     let id:            Uuid                  = row.get("id");
     let enrollment_id: Uuid                  = row.get("enrollment_id");
@@ -45,7 +53,7 @@ impl PaymentRepo for PaymentPgRepo {
                     &payment.amount_cents(), &payment.due_date(), &payment.notes(),
                 ],
             )
-            .map_err(|e| PaymentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         Ok(())
     }
 
@@ -57,7 +65,7 @@ impl PaymentRepo for PaymentPgRepo {
                  FROM payments WHERE enrollment_id = $1 ORDER BY due_date DESC",
                 &[&enrollment_id],
             )
-            .map_err(|e| PaymentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         rows.iter().map(row_to_payment).collect()
     }
 
@@ -67,7 +75,7 @@ impl PaymentRepo for PaymentPgRepo {
                 "UPDATE payments SET status = 'paid', paid_at = NOW() WHERE id = $1",
                 &[&id],
             )
-            .map_err(|e| PaymentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         if n == 0 { return Err(PaymentRepoError::NotFound(id)); }
         Ok(())
     }

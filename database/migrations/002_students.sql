@@ -21,10 +21,10 @@ CREATE TABLE IF NOT EXISTS students (
         CHECK (email ~* '^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$'),
 
     CONSTRAINT students_first_name_not_blank
-        CHECK (LENGTH(TRIM(first_name)) > 0),
+        CHECK (LENGTH(TRIM(first_name)) >= 3),
 
     CONSTRAINT students_last_name_not_blank
-        CHECK (LENGTH(TRIM(last_name)) > 0),
+        CHECK (LENGTH(TRIM(last_name)) >= 3),
 
     CONSTRAINT students_phone_format
         CHECK (phone ~ '^\+?[0-9][0-9\s\-\(\)]{6,24}$')

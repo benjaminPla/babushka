@@ -6,8 +6,8 @@ impl FirstName {
     const MIN_CHARS: usize = 3;
 
     pub fn new(value: impl Into<String>) -> Result<Self, FirstNameError> {
-        let s = value.into();
-        if s.trim().is_empty()       { return Err(FirstNameError::Empty) }
+        let s = value.into().trim().to_owned();
+        if s.is_empty()              { return Err(FirstNameError::Empty) }
         if s.len() > Self::MAX_CHARS { return Err(FirstNameError::TooLong(Self::MAX_CHARS)) }
         if s.len() < Self::MIN_CHARS { return Err(FirstNameError::TooShort(Self::MIN_CHARS)) }
         Ok(Self(s))

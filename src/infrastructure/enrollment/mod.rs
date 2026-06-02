@@ -17,6 +17,14 @@ impl EnrollmentPgRepo {
     pub fn new(client: Arc<Mutex<Client>>) -> Self { Self { client } }
 }
 
+fn pg_err(e: postgres::Error) -> EnrollmentRepoError {
+    let msg = e
+        .as_db_error()
+        .map(|db| format!("{} (code={})", db.message(), db.code().code()))
+        .unwrap_or_else(|| format!("{e:?}"));
+    EnrollmentRepoError::Database(msg)
+}
+
 fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
     let id:             Uuid           = row.get("id");
     let student_id:     Uuid           = row.get("student_id");
@@ -55,14 +63,14 @@ impl EnrollmentRepo for EnrollmentPgRepo {
                  VALUES ($1, $2, $3)",
                 &[&enrollment.id(), &enrollment.student_id(), &enrollment.course_id()],
             )
-            .map_err(|e| EnrollmentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         Ok(())
     }
 
     fn delete(&self, id: Uuid) -> Result<(), EnrollmentRepoError> {
         let n = self.client.lock().unwrap()
             .execute("DELETE FROM enrollments WHERE id = $1", &[&id])
-            .map_err(|e| EnrollmentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         if n == 0 { return Err(EnrollmentRepoError::NotFound(id)); }
         Ok(())
     }
@@ -71,7 +79,7 @@ impl EnrollmentRepo for EnrollmentPgRepo {
         let query = format!("{SELECT} WHERE e.course_id = $1 ORDER BY s.last_name, s.first_name");
         let rows = self.client.lock().unwrap()
             .query(&query, &[&course_id])
-            .map_err(|e| EnrollmentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         rows.iter().map(row_to_enrollment).collect()
     }
 
@@ -90,7 +98,7 @@ impl EnrollmentRepo for EnrollmentPgRepo {
                 "SELECT COUNT(*) FROM enrollments WHERE course_id = $1 AND status = 'active'",
                 &[&course_id],
             )
-            .map_err(|e| EnrollmentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         Ok(row.get(0))
     }
 
@@ -100,7 +108,7 @@ impl EnrollmentRepo for EnrollmentPgRepo {
                 "UPDATE enrollments SET status = $1::enrollment_status WHERE id = $2",
                 &[&enrollment.status().as_db_str(), &enrollment.id()],
             )
-            .map_err(|e| EnrollmentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         if n == 0 { return Err(EnrollmentRepoError::NotFound(enrollment.id())); }
         Ok(())
     }

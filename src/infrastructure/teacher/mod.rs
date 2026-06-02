@@ -27,6 +27,14 @@ impl TeacherPgRepo {
     }
 }
 
+fn pg_err(e: postgres::Error) -> TeacherRepoError {
+    let msg = e
+        .as_db_error()
+        .map(|db| format!("{} (code={})", db.message(), db.code().code()))
+        .unwrap_or_else(|| format!("{e:?}"));
+    TeacherRepoError::Database(msg)
+}
+
 fn row_to_teacher(row: &Row) -> Result<Teacher, TeacherRepoError> {
     let id:         Uuid           = row.get("id");
     let first_name: String         = row.get("first_name");
@@ -47,6 +55,7 @@ fn row_to_teacher(row: &Row) -> Result<Teacher, TeacherRepoError> {
 
 impl TeacherRepo for TeacherPgRepo {
     fn create(&self, teacher: &Teacher) -> Result<(), TeacherRepoError> {
+        let notes = teacher.notes().map(str::to_owned);
         self.client
             .lock()
             .unwrap()
@@ -59,10 +68,10 @@ impl TeacherRepo for TeacherPgRepo {
                     &teacher.last_name().value(),
                     &teacher.phone().value(),
                     &teacher.email().value(),
-                    &teacher.notes(),
+                    &notes,
                 ],
             )
-            .map_err(|e| TeacherRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         Ok(())
     }
 
@@ -71,7 +80,7 @@ impl TeacherRepo for TeacherPgRepo {
             .lock()
             .unwrap()
             .execute("DELETE FROM teachers WHERE id = $1", &[&id])
-            .map_err(|e| TeacherRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         if n == 0 { return Err(TeacherRepoError::NotFound(id)); }
         Ok(())
     }
@@ -85,7 +94,7 @@ impl TeacherRepo for TeacherPgRepo {
                  FROM teachers ORDER BY last_name, first_name",
                 &[],
             )
-            .map_err(|e| TeacherRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         rows.iter().map(row_to_teacher).collect()
     }
 
@@ -104,6 +113,7 @@ impl TeacherRepo for TeacherPgRepo {
     }
 
     fn update(&self, teacher: &Teacher) -> Result<(), TeacherRepoError> {
+        let notes = teacher.notes().map(str::to_owned);
         let n = self.client
             .lock()
             .unwrap()
@@ -116,11 +126,11 @@ impl TeacherRepo for TeacherPgRepo {
                     &teacher.last_name().value(),
                     &teacher.phone().value(),
                     &teacher.email().value(),
-                    &teacher.notes(),
+                    &notes,
                     &teacher.id(),
                 ],
             )
-            .map_err(|e| TeacherRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         if n == 0 { return Err(TeacherRepoError::NotFound(teacher.id())); }
         Ok(())
     }

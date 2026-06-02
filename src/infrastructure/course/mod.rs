@@ -17,6 +17,14 @@ impl CoursePgRepo {
     pub fn new(client: Arc<Mutex<Client>>) -> Self { Self { client } }
 }
 
+fn pg_err(e: postgres::Error) -> CourseRepoError {
+    let msg = e
+        .as_db_error()
+        .map(|db| format!("{} (code={})", db.message(), db.code().code()))
+        .unwrap_or_else(|| format!("{e:?}"));
+    CourseRepoError::Database(msg)
+}
+
 fn row_to_course(row: &Row) -> Result<Course, CourseRepoError> {
     let id:           Uuid           = row.get("id");
     let teacher_id:   Uuid           = row.get("teacher_id");
@@ -57,21 +65,21 @@ impl CourseRepo for CoursePgRepo {
         self.client.lock().unwrap()
             .execute(
                 "INSERT INTO courses (id, teacher_id, name, age_group, capacity, price_cents, notes)
-                 VALUES ($1, $2, $3, $4::age_group, $5, $6, $7)",
+                 VALUES ($1, $2, $3, $4::text::age_group, $5, $6, $7)",
                 &[
                     &course.id(), &course.teacher_id(), &course.name(),
                     &course.age_group().as_db_str(), &course.capacity(),
                     &course.price_cents(), &course.notes(),
                 ],
             )
-            .map_err(|e| CourseRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         Ok(())
     }
 
     fn delete(&self, id: Uuid) -> Result<(), CourseRepoError> {
         let n = self.client.lock().unwrap()
             .execute("DELETE FROM courses WHERE id = $1", &[&id])
-            .map_err(|e| CourseRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         if n == 0 { return Err(CourseRepoError::NotFound(id)); }
         Ok(())
     }
@@ -80,7 +88,7 @@ impl CourseRepo for CoursePgRepo {
         let query = format!("{SELECT} ORDER BY c.name");
         let rows = self.client.lock().unwrap()
             .query(&query, &[])
-            .map_err(|e| CourseRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         rows.iter().map(row_to_course).collect()
     }
 
@@ -88,7 +96,7 @@ impl CourseRepo for CoursePgRepo {
         let query = format!("{SELECT} WHERE c.id = $1");
         let row = self.client.lock().unwrap()
             .query_opt(&query, &[&id])
-            .map_err(|e| CourseRepoError::Database(e.to_string()))?
+            .map_err(pg_err)?
             .ok_or(CourseRepoError::NotFound(id))?;
         row_to_course(&row)
     }
@@ -97,7 +105,7 @@ impl CourseRepo for CoursePgRepo {
         let n = self.client.lock().unwrap()
             .execute(
                 "UPDATE courses
-                 SET teacher_id = $1, name = $2, age_group = $3::age_group,
+                 SET teacher_id = $1, name = $2, age_group = $3::text::age_group,
                      capacity = $4, price_cents = $5, notes = $6
                  WHERE id = $7",
                 &[
@@ -106,7 +114,7 @@ impl CourseRepo for CoursePgRepo {
                     &course.price_cents(), &course.notes(), &course.id(),
                 ],
             )
-            .map_err(|e| CourseRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         if n == 0 { return Err(CourseRepoError::NotFound(course.id())); }
         Ok(())
     }

@@ -27,6 +27,14 @@ impl StudentPgRepo {
     }
 }
 
+fn pg_err(e: postgres::Error) -> StudentRepoError {
+    let msg = e
+        .as_db_error()
+        .map(|db| format!("{} (code={})", db.message(), db.code().code()))
+        .unwrap_or_else(|| format!("{e:?}"));
+    StudentRepoError::Database(msg)
+}
+
 fn row_to_student(row: &Row) -> Result<Student, StudentRepoError> {
     let id:         Uuid          = row.get("id");
     let first_name: String        = row.get("first_name");
@@ -54,23 +62,24 @@ const SELECT: &str = "SELECT id, first_name, last_name, phone, email, notes,
 
 impl StudentRepo for StudentPgRepo {
     fn create(&self, student: &Student) -> Result<(), StudentRepoError> {
+        let notes = student.notes().map(str::to_owned);
         self.client
             .lock()
             .unwrap()
             .execute(
                 "INSERT INTO students (id, first_name, last_name, phone, email, notes, age_group)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7::age_group)",
+                 VALUES ($1, $2, $3, $4, $5, $6, $7::text::age_group)",
                 &[
                     &student.id(),
                     &student.first_name().value(),
                     &student.last_name().value(),
                     &student.phone().value(),
                     &student.email().value(),
-                    &student.notes(),
+                    &notes,
                     &student.age_group().as_db_str(),
                 ],
             )
-            .map_err(|e| StudentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         Ok(())
     }
 
@@ -79,7 +88,7 @@ impl StudentRepo for StudentPgRepo {
             .lock()
             .unwrap()
             .execute("DELETE FROM students WHERE id = $1", &[&id])
-            .map_err(|e| StudentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         if n == 0 { return Err(StudentRepoError::NotFound(id)); }
         Ok(())
     }
@@ -90,7 +99,7 @@ impl StudentRepo for StudentPgRepo {
             .lock()
             .unwrap()
             .query(&query, &[])
-            .map_err(|e| StudentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         rows.iter().map(row_to_student).collect()
     }
 
@@ -106,25 +115,26 @@ impl StudentRepo for StudentPgRepo {
     }
 
     fn update(&self, student: &Student) -> Result<(), StudentRepoError> {
+        let notes = student.notes().map(str::to_owned);
         let n = self.client
             .lock()
             .unwrap()
             .execute(
                 "UPDATE students
                  SET first_name = $1, last_name = $2, phone = $3, email = $4,
-                     notes = $5, age_group = $6::age_group
+                     notes = $5, age_group = $6::text::age_group
                  WHERE id = $7",
                 &[
                     &student.first_name().value(),
                     &student.last_name().value(),
                     &student.phone().value(),
                     &student.email().value(),
-                    &student.notes(),
+                    &notes,
                     &student.age_group().as_db_str(),
                     &student.id(),
                 ],
             )
-            .map_err(|e| StudentRepoError::Database(e.to_string()))?;
+            .map_err(pg_err)?;
         if n == 0 { return Err(StudentRepoError::NotFound(student.id())); }
         Ok(())
     }
