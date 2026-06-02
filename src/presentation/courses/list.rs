@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::application::course::delete::CourseDeleteUseCase;
 use crate::presentation::{confirm_delete_modal, fmt_dt, push_error, push_success, Notifications};
+use crate::presentation::table::{self, Column};
 
 use super::{CoursesState, Mode, clear_course_form, format_price, make_course_repo};
 
@@ -28,32 +29,38 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
 
     let mut action: Option<(Action, Uuid)> = None;
 
-    egui::Grid::new("courses_grid")
-        .num_columns(7)
-        .striped(true)
-        .show(ui, |ui| {
-            ui.strong("Nombre");
-            ui.strong("Profesor");
-            ui.strong("Grupo");
-            ui.strong("Capacidad");
-            ui.strong("Precio");
-            ui.strong("Inscritos");
-            ui.strong("");
-            ui.end_row();
-
+    table::builder(ui)
+        .column(Column::remainder().at_least(120.0))
+        .column(Column::auto().at_least(100.0))
+        .column(Column::auto().at_least(60.0))
+        .column(Column::exact(60.0))
+        .column(Column::exact(70.0))
+        .column(Column::exact(70.0))
+        .column(Column::auto())
+        .header(table::header_height(), |mut h| {
+            h.col(|ui| table::head(ui, "Nombre"));
+            h.col(|ui| table::head(ui, "Profesor"));
+            h.col(|ui| table::head(ui, "Grupo"));
+            h.col(|ui| table::head(ui, "Cap."));
+            h.col(|ui| table::head(ui, "Precio"));
+            h.col(|ui| table::head(ui, "Inscritos"));
+            h.col(|ui| table::head(ui, ""));
+        })
+        .body(|mut body| {
             for c in &state.courses {
-                ui.label(&c.name);
-                ui.label(&c.teacher_name);
-                ui.label(c.age_group.label());
-                ui.label(format!("{}", c.capacity));
-                ui.label(format_price(c.price_cents));
-                ui.label(format!("{}/{}", c.enrolled, c.capacity));
-                ui.horizontal(|ui| {
-                    if ui.small_button("Ver").clicked()      { action = Some((Action::Open,   c.id)); }
-                    if ui.small_button("Editar").clicked()   { action = Some((Action::Edit,   c.id)); }
-                    if ui.small_button("Eliminar").clicked() { action = Some((Action::Delete, c.id)); }
+                body.row(table::row_height(), |mut row| {
+                    row.col(|ui| { ui.label(&c.name); });
+                    row.col(|ui| { ui.label(&c.teacher_name); });
+                    row.col(|ui| { ui.label(c.age_group.label()); });
+                    row.col(|ui| { ui.label(c.capacity.to_string()); });
+                    row.col(|ui| { ui.label(format_price(c.price_cents)); });
+                    row.col(|ui| { ui.label(format!("{}/{}", c.enrolled, c.capacity)); });
+                    row.col(|ui| {
+                        if ui.small_button("Ver").clicked()      { action = Some((Action::Open,   c.id)); }
+                        if ui.small_button("Editar").clicked()   { action = Some((Action::Edit,   c.id)); }
+                        if ui.small_button("Eliminar").clicked() { action = Some((Action::Delete, c.id)); }
+                    });
                 });
-                ui.end_row();
             }
         });
 

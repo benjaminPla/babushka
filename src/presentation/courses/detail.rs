@@ -16,6 +16,7 @@ use crate::{
     },
     domain::enrollment::EnrollmentStatus,
     presentation::{confirm_delete_modal, push_error, push_success, Notifications},
+    presentation::table::{self, Column},
 };
 
 use super::{
@@ -116,55 +117,53 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
     // Enrollment list
     let mut action: Option<(Action, Uuid)> = None;
 
-    egui::Grid::new("enrollments_grid")
-        .num_columns(4)
-        .striped(true)
-        .show(ui, |ui| {
-            ui.strong("Alumno");
-            ui.strong("Estado");
-            ui.strong("Último pago");
-            ui.strong("");
-            ui.end_row();
-
+    table::builder(ui)
+        .column(Column::remainder().at_least(100.0))
+        .column(Column::auto().at_least(70.0))
+        .column(Column::auto().at_least(90.0))
+        .column(Column::auto())
+        .header(table::header_height(), |mut h| {
+            h.col(|ui| table::head(ui, "Alumno"));
+            h.col(|ui| table::head(ui, "Estado"));
+            h.col(|ui| table::head(ui, "Último pago"));
+            h.col(|ui| table::head(ui, ""));
+        })
+        .body(|mut body| {
             for e in &state.enrollments {
-                ui.label(&e.student_name);
-                ui.label(e.status.label());
-
-                match &e.latest_payment {
-                    None => { ui.label("—"); }
-                    Some(s) => {
-                        let (text, color) = match s.as_str() {
-                            "paid"    => ("✓ Pagado",    crate::theme::colors::SUCCESS),
-                            "overdue" => ("✗ Vencido",   crate::theme::colors::ERROR),
-                            _         => ("⚠ Pendiente", crate::theme::colors::WARNING),
-                        };
-                        ui.colored_label(color, text);
-                    }
-                }
-
-                ui.horizontal(|ui| {
-                    if ui.small_button("Pagos").clicked() {
-                        action = Some((Action::Open, e.id));
-                    }
-                    egui::ComboBox::from_id_salt(format!("status_{}", e.id))
-                        .selected_text(e.status.label())
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut (), (), EnrollmentStatus::Active.label());
-                            if ui.selectable_label(false, EnrollmentStatus::Active.label()).clicked() {
-                                action = Some((Action::ChangeStatus(EnrollmentStatus::Active), e.id));
+                body.row(table::row_height(), |mut row| {
+                    row.col(|ui| { ui.label(&e.student_name); });
+                    row.col(|ui| { ui.label(e.status.label()); });
+                    row.col(|ui| {
+                        match &e.latest_payment {
+                            None => { ui.label("—"); }
+                            Some(s) => {
+                                let (text, color) = match s.as_str() {
+                                    "paid"    => ("✓ Pagado",    crate::theme::colors::SUCCESS),
+                                    "overdue" => ("✗ Vencido",   crate::theme::colors::ERROR),
+                                    _         => ("⚠ Pendiente", crate::theme::colors::WARNING),
+                                };
+                                ui.colored_label(color, text);
                             }
-                            if ui.selectable_label(false, EnrollmentStatus::Dropped.label()).clicked() {
-                                action = Some((Action::ChangeStatus(EnrollmentStatus::Dropped), e.id));
-                            }
-                            if ui.selectable_label(false, EnrollmentStatus::Completed.label()).clicked() {
-                                action = Some((Action::ChangeStatus(EnrollmentStatus::Completed), e.id));
-                            }
-                        });
-                    if ui.small_button("🗑").clicked() {
-                        action = Some((Action::Delete, e.id));
-                    }
+                        }
+                    });
+                    row.col(|ui| {
+                        if ui.small_button("Pagos").clicked() { action = Some((Action::Open, e.id)); }
+                        egui::ComboBox::from_id_salt(format!("status_{}", e.id))
+                            .selected_text(e.status.label())
+                            .show_ui(ui, |ui| {
+                                if ui.selectable_label(false, EnrollmentStatus::Active.label()).clicked() {
+                                    action = Some((Action::ChangeStatus(EnrollmentStatus::Active), e.id));
+                                }
+                                if ui.selectable_label(false, EnrollmentStatus::Dropped.label()).clicked() {
+                                    action = Some((Action::ChangeStatus(EnrollmentStatus::Dropped), e.id));
+                                }
+                                if ui.selectable_label(false, EnrollmentStatus::Completed.label()).clicked() {
+                                    action = Some((Action::ChangeStatus(EnrollmentStatus::Completed), e.id));
+                                }
+                            });
+                        if ui.small_button("🗑").clicked() { action = Some((Action::Delete, e.id)); }
+                    });
                 });
-                ui.end_row();
             }
         });
 

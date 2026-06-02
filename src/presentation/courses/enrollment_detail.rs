@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex};
 use chrono::NaiveDate;
 
 use crate::presentation::{fmt_dt, push_error, push_success, Notifications};
+use crate::presentation::table::{self, Column};
 use eframe::egui;
 use postgres::Client;
 use uuid::Uuid;
@@ -89,50 +90,50 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
     // Payment history
     let mut mark_id: Option<Uuid> = None;
 
-    egui::Grid::new("payments_grid")
-        .num_columns(5)
-        .striped(true)
-        .show(ui, |ui| {
-            ui.strong("Período");
-            ui.strong("Monto");
-            ui.strong("Estado");
-            ui.strong("Fecha de pago");
-            ui.strong("");
-            ui.end_row();
-
+    table::builder(ui)
+        .column(Column::exact(70.0))
+        .column(Column::exact(75.0))
+        .column(Column::auto().at_least(80.0))
+        .column(Column::remainder().at_least(110.0))
+        .column(Column::auto())
+        .header(table::header_height(), |mut h| {
+            h.col(|ui| table::head(ui, "Período"));
+            h.col(|ui| table::head(ui, "Monto"));
+            h.col(|ui| table::head(ui, "Estado"));
+            h.col(|ui| table::head(ui, "Fecha de pago"));
+            h.col(|ui| table::head(ui, ""));
+        })
+        .body(|mut body| {
             for p in &state.payments {
-                ui.label(p.due_date.format("%b %Y").to_string());
-                ui.label(format!("${}", super::format_price(p.amount_cents)));
-
-                let (text, color) = match p.status {
-                    PaymentStatus::Paid    => ("✓ Pagado",    crate::theme::colors::SUCCESS),
-                    PaymentStatus::Overdue => ("✗ Vencido",   crate::theme::colors::ERROR),
-                    PaymentStatus::Pending => ("⚠ Pendiente", crate::theme::colors::WARNING),
-                };
-                ui.colored_label(color, text);
-
-                match p.paid_at {
-                    Some(dt) => ui.label(fmt_dt(dt)),
-                    None     => ui.label("—"),
-                };
-
-                if p.status != PaymentStatus::Paid {
-                    if ui.small_button("Marcar pagado").clicked() {
-                        mark_id = Some(p.id);
-                    }
-                } else {
-                    ui.label("");
-                }
-                ui.end_row();
+                body.row(table::row_height(), |mut row| {
+                    row.col(|ui| { ui.label(p.due_date.format("%b %Y").to_string()); });
+                    row.col(|ui| { ui.label(format!("${}", super::format_price(p.amount_cents))); });
+                    row.col(|ui| {
+                        let (text, color) = match p.status {
+                            PaymentStatus::Paid    => ("✓ Pagado",    crate::theme::colors::SUCCESS),
+                            PaymentStatus::Overdue => ("✗ Vencido",   crate::theme::colors::ERROR),
+                            PaymentStatus::Pending => ("⚠ Pendiente", crate::theme::colors::WARNING),
+                        };
+                        ui.colored_label(color, text);
+                    });
+                    row.col(|ui| {
+                        match p.paid_at {
+                            Some(dt) => { ui.label(fmt_dt(dt)); }
+                            None     => { ui.label("—"); }
+                        }
+                    });
+                    row.col(|ui| {
+                        if p.status != PaymentStatus::Paid {
+                            if ui.small_button("Marcar pagado").clicked() { mark_id = Some(p.id); }
+                        }
+                    });
+                });
             }
         });
 
     if let Some(id) = mark_id {
         match PaymentMarkPaidUseCase::new(make_payment_repo(client)).execute(id) {
-            Ok(_)  => {
-                push_success(notifs, "Pago marcado como pagado");
-                state.needs_reload_payments = true;
-            }
+            Ok(_)  => { push_success(notifs, "Pago marcado como pagado"); state.needs_reload_payments = true; }
             Err(e) => push_error(notifs, e.to_string()),
         }
     }

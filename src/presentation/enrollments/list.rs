@@ -16,6 +16,7 @@ use crate::{
     },
     domain::enrollment::EnrollmentStatus,
     presentation::{confirm_delete_modal, fmt_dt, push_error, push_success, Notifications},
+    presentation::table::{self, Column},
 };
 
 use super::{EnrollmentsState, Mode, make_course_repo, make_enrollment_repo, make_student_repo, status_label_color};
@@ -23,16 +24,11 @@ use super::{EnrollmentsState, Mode, make_course_repo, make_enrollment_repo, make
 enum Action { ChangeStatus(EnrollmentStatus), Delete }
 
 pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut EnrollmentsState, notifs: &mut Notifications) {
-    // ── Header ───────────────────────────────────────────────────────────────
     ui.horizontal(|ui| {
         ui.heading("Inscripciones");
         if state.mode == Mode::List && ui.button("+ Nueva").clicked() {
-            if let Ok(ss) = StudentGetAllUseCase::new(make_student_repo(client)).execute() {
-                state.students = ss;
-            }
-            if let Ok(cs) = CourseGetAllUseCase::new(make_course_repo(client)).execute() {
-                state.courses = cs;
-            }
+            if let Ok(ss) = StudentGetAllUseCase::new(make_student_repo(client)).execute() { state.students = ss; }
+            if let Ok(cs) = CourseGetAllUseCase::new(make_course_repo(client)).execute()   { state.courses  = cs; }
             state.sel_student = None;
             state.sel_course  = None;
             state.mode        = Mode::Create;
@@ -40,7 +36,6 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Enrollme
     });
     ui.separator();
 
-    // ── Create form ──────────────────────────────────────────────────────────
     if state.mode == Mode::Create {
         egui::Grid::new("enrollment_create").num_columns(2).show(ui, |ui| {
             ui.label("Alumno");
@@ -53,12 +48,11 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Enrollme
                 )
                 .show_ui(ui, |ui| {
                     for s in &state.students {
-                        let label = format!("{} {}", s.first_name, s.last_name);
-                        ui.selectable_value(&mut state.sel_student, Some(s.id), label);
+                        ui.selectable_value(&mut state.sel_student, Some(s.id),
+                            format!("{} {}", s.first_name, s.last_name));
                     }
                 });
             ui.end_row();
-
             ui.label("Curso");
             egui::ComboBox::from_id_salt("enr_course")
                 .selected_text(
@@ -74,23 +68,16 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Enrollme
                 });
             ui.end_row();
         });
-
         ui.horizontal(|ui| {
             if ui.button("Guardar").clicked() {
                 match (state.sel_student, state.sel_course) {
                     (Some(student_id), Some(course_id)) => {
-                        let result = EnrollmentCreateUseCase::new(
+                        match EnrollmentCreateUseCase::new(
                             make_enrollment_repo(client),
                             make_course_repo(client),
                             make_student_repo(client),
-                        ).execute(EnrollmentCreateInput { student_id, course_id });
-
-                        match result {
-                            Ok(_) => {
-                                push_success(notifs, "Alumno inscrito");
-                                state.needs_reload = true;
-                                state.mode         = Mode::List;
-                            }
+                        ).execute(EnrollmentCreateInput { student_id, course_id }) {
+                            Ok(_)  => { push_success(notifs, "Alumno inscrito"); state.needs_reload = true; state.mode = Mode::List; }
                             Err(e) => push_error(notifs, e.to_string()),
                         }
                     }
@@ -102,50 +89,51 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Enrollme
         ui.separator();
     }
 
-    // ── List ─────────────────────────────────────────────────────────────────
     let mut action: Option<(Action, Uuid)> = None;
 
-    egui::Grid::new("enrollments_grid")
-        .num_columns(6)
-        .striped(true)
-        .show(ui, |ui| {
-            ui.strong("Alumno");
-            ui.strong("Curso");
-            ui.strong("Estado");
-            ui.strong("Último pago");
-            ui.strong("Inscripto");
-            ui.strong("");
-            ui.end_row();
-
+    table::builder(ui)
+        .column(Column::auto().at_least(100.0))
+        .column(Column::remainder().at_least(100.0))
+        .column(Column::auto().at_least(70.0))
+        .column(Column::auto().at_least(80.0))
+        .column(Column::auto().at_least(110.0))
+        .column(Column::auto())
+        .header(table::header_height(), |mut h| {
+            h.col(|ui| table::head(ui, "Alumno"));
+            h.col(|ui| table::head(ui, "Curso"));
+            h.col(|ui| table::head(ui, "Estado"));
+            h.col(|ui| table::head(ui, "Último pago"));
+            h.col(|ui| table::head(ui, "Inscripto"));
+            h.col(|ui| table::head(ui, ""));
+        })
+        .body(|mut body| {
             for e in &state.enrollments {
-                ui.label(&e.student_name);
-                ui.label(&e.course_name);
-                ui.colored_label(status_label_color(&e.status), e.status.label());
-
-                match e.latest_payment.as_deref() {
-                    None          => { ui.label("—"); }
-                    Some("paid")    => { ui.colored_label(crate::theme::colors::SUCCESS,  "✓ Pagado"); }
-                    Some("overdue") => { ui.colored_label(crate::theme::colors::ERROR,    "✗ Vencido"); }
-                    _               => { ui.colored_label(crate::theme::colors::WARNING, "⚠ Pendiente"); }
-                }
-
-                ui.label(fmt_dt(e.enrolled_at));
-
-                ui.horizontal(|ui| {
-                    egui::ComboBox::from_id_salt(format!("enr_status_{}", e.id))
-                        .selected_text(e.status.label())
-                        .show_ui(ui, |ui| {
-                            for s in [EnrollmentStatus::Active, EnrollmentStatus::Dropped, EnrollmentStatus::Completed] {
-                                if ui.selectable_label(e.status == s, s.label()).clicked() {
-                                    action = Some((Action::ChangeStatus(s), e.id));
+                body.row(table::row_height(), |mut row| {
+                    row.col(|ui| { ui.label(&e.student_name); });
+                    row.col(|ui| { ui.label(&e.course_name); });
+                    row.col(|ui| { ui.colored_label(status_label_color(&e.status), e.status.label()); });
+                    row.col(|ui| {
+                        match e.latest_payment.as_deref() {
+                            None            => { ui.label("—"); }
+                            Some("paid")    => { ui.colored_label(crate::theme::colors::SUCCESS, "✓ Pagado"); }
+                            Some("overdue") => { ui.colored_label(crate::theme::colors::ERROR,   "✗ Vencido"); }
+                            _               => { ui.colored_label(crate::theme::colors::WARNING, "⚠ Pendiente"); }
+                        }
+                    });
+                    row.col(|ui| { ui.label(fmt_dt(e.enrolled_at)); });
+                    row.col(|ui| {
+                        egui::ComboBox::from_id_salt(format!("enr_status_{}", e.id))
+                            .selected_text(e.status.label())
+                            .show_ui(ui, |ui| {
+                                for s in [EnrollmentStatus::Active, EnrollmentStatus::Dropped, EnrollmentStatus::Completed] {
+                                    if ui.selectable_label(e.status == s, s.label()).clicked() {
+                                        action = Some((Action::ChangeStatus(s), e.id));
+                                    }
                                 }
-                            }
-                        });
-                    if ui.small_button("🗑").clicked() {
-                        action = Some((Action::Delete, e.id));
-                    }
+                            });
+                        if ui.small_button("🗑").clicked() { action = Some((Action::Delete, e.id)); }
+                    });
                 });
-                ui.end_row();
             }
         });
 

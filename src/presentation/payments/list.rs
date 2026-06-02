@@ -16,6 +16,7 @@ use crate::{
     },
     domain::payment::PaymentStatus,
     presentation::{confirm_delete_modal, fmt_dt, push_error, push_success, Notifications},
+    presentation::table::{self, Column},
 };
 
 use super::{Mode, PaymentsState, make_enrollment_repo, make_payment_repo};
@@ -23,7 +24,6 @@ use super::{Mode, PaymentsState, make_enrollment_repo, make_payment_repo};
 enum Action { MarkPaid, Delete }
 
 pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut PaymentsState, notifs: &mut Notifications) {
-    // ── Header ───────────────────────────────────────────────────────────────
     ui.horizontal(|ui| {
         ui.heading("Pagos");
         if state.mode == Mode::List && ui.button("+ Registrar").clicked() {
@@ -40,7 +40,6 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Payments
     });
     ui.separator();
 
-    // ── Create form ──────────────────────────────────────────────────────────
     if state.mode == Mode::Create {
         egui::Grid::new("payment_create").num_columns(2).show(ui, |ui| {
             ui.label("Inscripción");
@@ -58,20 +57,10 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Payments
                     }
                 });
             ui.end_row();
-
-            ui.label("Período (YYYY-MM)");
-            ui.text_edit_singleline(&mut state.due_date);
-            ui.end_row();
-
-            ui.label("Monto");
-            ui.text_edit_singleline(&mut state.amount);
-            ui.end_row();
-
-            ui.label("Notas");
-            ui.text_edit_singleline(&mut state.notes);
-            ui.end_row();
+            ui.label("Período (YYYY-MM)"); ui.text_edit_singleline(&mut state.due_date);   ui.end_row();
+            ui.label("Monto");             ui.text_edit_singleline(&mut state.amount);      ui.end_row();
+            ui.label("Notas");             ui.text_edit_singleline(&mut state.notes);       ui.end_row();
         });
-
         ui.horizontal(|ui| {
             if ui.button("Guardar").clicked() {
                 let enrollment_id = match state.sel_enrollment {
@@ -87,15 +76,10 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Payments
                     None    => { push_error(notifs, "Monto inválido"); return; }
                 };
                 let notes = if state.notes.trim().is_empty() { None } else { Some(state.notes.clone()) };
-
                 match PaymentCreateUseCase::new(make_payment_repo(client)).execute(PaymentCreateInput {
                     enrollment_id, amount_cents, due_date, notes,
                 }) {
-                    Ok(_) => {
-                        push_success(notifs, "Pago registrado");
-                        state.needs_reload = true;
-                        state.mode         = Mode::List;
-                    }
+                    Ok(_)  => { push_success(notifs, "Pago registrado"); state.needs_reload = true; state.mode = Mode::List; }
                     Err(e) => push_error(notifs, e.to_string()),
                 }
             }
@@ -104,51 +88,53 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Payments
         ui.separator();
     }
 
-    // ── List ─────────────────────────────────────────────────────────────────
     let mut action: Option<(Action, Uuid)> = None;
 
-    egui::Grid::new("payments_grid")
-        .num_columns(7)
-        .striped(true)
-        .show(ui, |ui| {
-            ui.strong("Alumno");
-            ui.strong("Curso");
-            ui.strong("Período");
-            ui.strong("Monto");
-            ui.strong("Estado");
-            ui.strong("Pagado");
-            ui.strong("");
-            ui.end_row();
-
+    table::builder(ui)
+        .column(Column::auto().at_least(100.0))
+        .column(Column::remainder().at_least(100.0))
+        .column(Column::exact(70.0))
+        .column(Column::exact(75.0))
+        .column(Column::auto().at_least(80.0))
+        .column(Column::auto().at_least(110.0))
+        .column(Column::auto())
+        .header(table::header_height(), |mut h| {
+            h.col(|ui| table::head(ui, "Alumno"));
+            h.col(|ui| table::head(ui, "Curso"));
+            h.col(|ui| table::head(ui, "Período"));
+            h.col(|ui| table::head(ui, "Monto"));
+            h.col(|ui| table::head(ui, "Estado"));
+            h.col(|ui| table::head(ui, "Pagado"));
+            h.col(|ui| table::head(ui, ""));
+        })
+        .body(|mut body| {
             for p in &state.payments {
-                ui.label(&p.student_name);
-                ui.label(&p.course_name);
-                ui.label(p.due_date.format("%b %Y").to_string());
-                ui.label(format!("${:.2}", p.amount_cents as f64 / 100.0));
-
-                let (text, color) = match p.status {
-                    PaymentStatus::Paid    => ("✓ Pagado",    crate::theme::colors::SUCCESS),
-                    PaymentStatus::Overdue => ("✗ Vencido",   crate::theme::colors::ERROR),
-                    PaymentStatus::Pending => ("⚠ Pendiente", crate::theme::colors::WARNING),
-                };
-                ui.colored_label(color, text);
-
-                match p.paid_at {
-                    Some(dt) => ui.label(fmt_dt(dt)),
-                    None     => ui.label("—"),
-                };
-
-                ui.horizontal(|ui| {
-                    if p.status != PaymentStatus::Paid {
-                        if ui.small_button("✓ Pagar").clicked() {
-                            action = Some((Action::MarkPaid, p.id));
+                body.row(table::row_height(), |mut row| {
+                    row.col(|ui| { ui.label(&p.student_name); });
+                    row.col(|ui| { ui.label(&p.course_name); });
+                    row.col(|ui| { ui.label(p.due_date.format("%b %Y").to_string()); });
+                    row.col(|ui| { ui.label(format!("${:.2}", p.amount_cents as f64 / 100.0)); });
+                    row.col(|ui| {
+                        let (text, color) = match p.status {
+                            PaymentStatus::Paid    => ("✓ Pagado",    crate::theme::colors::SUCCESS),
+                            PaymentStatus::Overdue => ("✗ Vencido",   crate::theme::colors::ERROR),
+                            PaymentStatus::Pending => ("⚠ Pendiente", crate::theme::colors::WARNING),
+                        };
+                        ui.colored_label(color, text);
+                    });
+                    row.col(|ui| {
+                        match p.paid_at {
+                            Some(dt) => { ui.label(fmt_dt(dt)); }
+                            None     => { ui.label("—"); }
                         }
-                    }
-                    if ui.small_button("🗑").clicked() {
-                        action = Some((Action::Delete, p.id));
-                    }
+                    });
+                    row.col(|ui| {
+                        if p.status != PaymentStatus::Paid {
+                            if ui.small_button("✓ Pagar").clicked() { action = Some((Action::MarkPaid, p.id)); }
+                        }
+                        if ui.small_button("🗑").clicked() { action = Some((Action::Delete, p.id)); }
+                    });
                 });
-                ui.end_row();
             }
         });
 

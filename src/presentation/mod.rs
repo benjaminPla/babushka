@@ -2,6 +2,7 @@ pub mod courses;
 pub mod enrollments;
 pub mod payments;
 pub mod students;
+pub mod table;
 pub mod teachers;
 
 use std::time::{Duration, Instant};
@@ -46,9 +47,9 @@ pub fn render_notifications(ui: &mut egui::Ui, notifs: &mut Notifications) {
         .show(ui.ctx(), |ui| {
             for (i, notif) in notifs.iter().enumerate() {
                 let (bg, fg) = match notif.kind {
-                    NotificationKind::Error   => (crate::theme::colors::NOTIF_ERROR,   crate::theme::colors::WHITE),
-                    NotificationKind::Success => (crate::theme::colors::NOTIF_SUCCESS, crate::theme::colors::WHITE),
-                    NotificationKind::Warning => (crate::theme::colors::NOTIF_WARNING, crate::theme::colors::WHITE),
+                    NotificationKind::Error   => (crate::theme::colors::NOTIF_ERROR,   crate::theme::colors::BACKGROUND),
+                    NotificationKind::Success => (crate::theme::colors::NOTIF_SUCCESS, crate::theme::colors::BACKGROUND),
+                    NotificationKind::Warning => (crate::theme::colors::NOTIF_WARNING, crate::theme::colors::BACKGROUND),
                 };
                 egui::Frame::new()
                     .fill(bg)

@@ -5,7 +5,8 @@ use postgres::Client;
 use uuid::Uuid;
 
 use crate::application::student::delete::StudentDeleteUseCase;
-use crate::presentation::{confirm_delete_modal, push_error, push_success, Notifications};
+use crate::presentation::{confirm_delete_modal, fmt_dt, push_error, push_success, Notifications};
+use crate::presentation::table::{self, Column};
 
 use super::{Mode, StudentsState, clear_form, make_repo};
 
@@ -23,29 +24,34 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
 
     let mut action: Option<(Action, Uuid)> = None;
 
-    egui::Grid::new("students_grid")
-        .num_columns(6)
-        .striped(true)
-        .show(ui, |ui| {
-            ui.strong("Nombre");
-            ui.strong("Apellido");
-            ui.strong("Email");
-            ui.strong("Teléfono");
-            ui.strong("Tipo");
-            ui.strong("");
-            ui.end_row();
-
+    table::builder(ui)
+        .column(Column::auto().at_least(90.0))
+        .column(Column::auto().at_least(90.0))
+        .column(Column::remainder().at_least(120.0))
+        .column(Column::auto().at_least(110.0))
+        .column(Column::auto().at_least(60.0))
+        .column(Column::auto())
+        .header(table::header_height(), |mut h| {
+            h.col(|ui| table::head(ui, "Nombre"));
+            h.col(|ui| table::head(ui, "Apellido"));
+            h.col(|ui| table::head(ui, "Email"));
+            h.col(|ui| table::head(ui, "Teléfono"));
+            h.col(|ui| table::head(ui, "Tipo"));
+            h.col(|ui| table::head(ui, ""));
+        })
+        .body(|mut body| {
             for s in &state.students {
-                ui.label(&s.first_name);
-                ui.label(&s.last_name);
-                ui.label(&s.email);
-                ui.label(&s.phone);
-                ui.label(s.age_group.label());
-                ui.horizontal(|ui| {
-                    if ui.small_button("Editar").clicked()   { action = Some((Action::Edit,   s.id)); }
-                    if ui.small_button("Eliminar").clicked() { action = Some((Action::Delete, s.id)); }
+                body.row(table::row_height(), |mut row| {
+                    row.col(|ui| { ui.label(&s.first_name); });
+                    row.col(|ui| { ui.label(&s.last_name); });
+                    row.col(|ui| { ui.label(&s.email); });
+                    row.col(|ui| { ui.label(&s.phone); });
+                    row.col(|ui| { ui.label(s.age_group.label()); });
+                    row.col(|ui| {
+                        if ui.small_button("Editar").clicked()   { action = Some((Action::Edit,   s.id)); }
+                        if ui.small_button("Eliminar").clicked() { action = Some((Action::Delete, s.id)); }
+                    });
                 });
-                ui.end_row();
             }
         });
 
@@ -59,8 +65,8 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                     state.email      = s.email.clone();
                     state.phone      = s.phone.clone();
                     state.notes      = s.notes.clone().unwrap_or_default();
-                    state.created_at = crate::presentation::fmt_dt(s.created_at);
-                    state.updated_at = crate::presentation::fmt_dt(s.updated_at);
+                    state.created_at = fmt_dt(s.created_at);
+                    state.updated_at = fmt_dt(s.updated_at);
                     state.editing_id = Some(id);
                     state.mode       = Mode::Edit;
                 }
