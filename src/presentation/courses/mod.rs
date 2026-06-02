@@ -74,6 +74,7 @@ pub struct CoursesState {
     pub updated_at:             String,
 
     pub error:                  Option<String>,
+    pub confirm_delete:         Option<Uuid>,
 }
 
 impl Default for CoursesState {
@@ -104,6 +105,7 @@ impl Default for CoursesState {
             created_at:               String::new(),
             updated_at:               String::new(),
             error:                    None,
+            confirm_delete:           None,
         }
     }
 }

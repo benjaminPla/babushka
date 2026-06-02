@@ -17,6 +17,8 @@ use crate::{
     domain::enrollment::EnrollmentStatus,
 };
 
+use crate::presentation::confirm_delete_modal;
+
 use super::{
     CoursesState, Mode,
     make_course_repo, make_enrollment_repo, make_student_repo,
@@ -200,12 +202,14 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                     Err(e) => state.error = Some(e.to_string()),
                 }
             }
-            Action::Delete => {
-                match EnrollmentDeleteUseCase::new(make_enrollment_repo(client)).execute(id) {
-                    Ok(_)  => { state.needs_reload_enrollments = true; state.needs_reload = true; }
-                    Err(e) => state.error = Some(e.to_string()),
-                }
-            }
+            Action::Delete => { state.confirm_delete = Some(id); }
+        }
+    }
+
+    if let Some(id) = confirm_delete_modal(ui.ctx(), &mut state.confirm_delete) {
+        match EnrollmentDeleteUseCase::new(make_enrollment_repo(client)).execute(id) {
+            Ok(_)  => { state.needs_reload_enrollments = true; state.needs_reload = true; }
+            Err(e) => state.error = Some(e.to_string()),
         }
     }
 }

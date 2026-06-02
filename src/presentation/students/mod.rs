@@ -29,25 +29,27 @@ pub struct StudentsState {
     pub notes:        String,
     pub created_at:   String,
     pub updated_at:   String,
-    pub error:        Option<String>,
+    pub error:          Option<String>,
+    pub confirm_delete: Option<Uuid>,
 }
 
 impl Default for StudentsState {
     fn default() -> Self {
         Self {
-            mode:         Mode::List,
-            students:     Vec::new(),
-            needs_reload: true,
-            editing_id:   None,
-            age_group:    AgeGroup::default(),
-            first_name:   String::new(),
-            last_name:    String::new(),
-            email:        String::new(),
-            phone:        String::new(),
-            notes:        String::new(),
-            created_at:   String::new(),
-            updated_at:   String::new(),
-            error:        None,
+            mode:           Mode::List,
+            students:       Vec::new(),
+            needs_reload:   true,
+            editing_id:     None,
+            age_group:      AgeGroup::default(),
+            first_name:     String::new(),
+            last_name:      String::new(),
+            email:          String::new(),
+            phone:          String::new(),
+            notes:          String::new(),
+            created_at:     String::new(),
+            updated_at:     String::new(),
+            error:          None,
+            confirm_delete: None,
         }
     }
 }

@@ -6,6 +6,7 @@ use postgres::Client;
 use uuid::Uuid;
 
 use crate::application::teacher::delete::TeacherDeleteUseCase;
+use crate::presentation::confirm_delete_modal;
 
 use super::{Mode, TeachersState, clear_form, make_repo};
 
@@ -68,12 +69,14 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Teachers
                     state.mode       = Mode::Edit;
                 }
             }
-            Action::Delete => {
-                match TeacherDeleteUseCase::new(make_repo(client)).execute(id) {
-                    Ok(_)  => state.needs_reload = true,
-                    Err(e) => state.error = Some(e.to_string()),
-                }
-            }
+            Action::Delete => { state.confirm_delete = Some(id); }
+        }
+    }
+
+    if let Some(id) = confirm_delete_modal(ui.ctx(), &mut state.confirm_delete) {
+        match TeacherDeleteUseCase::new(make_repo(client)).execute(id) {
+            Ok(_)  => state.needs_reload = true,
+            Err(e) => state.error = Some(e.to_string()),
         }
     }
 }
