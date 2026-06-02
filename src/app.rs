@@ -8,6 +8,8 @@ use tokio::runtime::Runtime;
 use crate::presentation::{
     render_notifications,
     courses::{self, CoursesState},
+    enrollments::{self, EnrollmentsState},
+    payments::{self, PaymentsState},
     students::{self, StudentsState},
     teachers::{self, TeachersState},
     Notifications,
@@ -103,29 +105,35 @@ impl eframe::App for AppWrapper {
 
 #[derive(PartialEq)]
 enum View {
-    Teachers,
-    Students,
     Courses,
+    Enrollments,
+    Payments,
+    Students,
+    Teachers,
 }
 
 struct App {
-    client:         Arc<Mutex<Client>>,
-    current_view:   View,
-    courses_state:  CoursesState,
-    students_state: StudentsState,
-    teachers_state: TeachersState,
-    notifications:  Notifications,
+    client:             Arc<Mutex<Client>>,
+    current_view:       View,
+    courses_state:      CoursesState,
+    enrollments_state:  EnrollmentsState,
+    payments_state:     PaymentsState,
+    students_state:     StudentsState,
+    teachers_state:     TeachersState,
+    notifications:      Notifications,
 }
 
 impl App {
     fn new(client: Arc<Mutex<Client>>) -> Self {
         Self {
             client,
-            current_view:   View::Courses,
-            courses_state:  CoursesState::default(),
-            students_state: StudentsState::default(),
-            teachers_state: TeachersState::default(),
-            notifications:  Vec::new(),
+            current_view:      View::Courses,
+            courses_state:     CoursesState::default(),
+            enrollments_state: EnrollmentsState::default(),
+            payments_state:    PaymentsState::default(),
+            students_state:    StudentsState::default(),
+            teachers_state:    TeachersState::default(),
+            notifications:     Vec::new(),
         }
     }
 
@@ -133,17 +141,21 @@ impl App {
         egui::Panel::left("menu").show_inside(ui, |ui| {
             ui.heading("Aries");
             ui.separator();
-            ui.selectable_value(&mut self.current_view, View::Courses,  "Cursos");
-            ui.selectable_value(&mut self.current_view, View::Teachers, "Profesores");
-            ui.selectable_value(&mut self.current_view, View::Students, "Alumnos");
+            ui.selectable_value(&mut self.current_view, View::Courses,     "Cursos");
+            ui.selectable_value(&mut self.current_view, View::Enrollments, "Inscripciones");
+            ui.selectable_value(&mut self.current_view, View::Payments,    "Pagos");
+            ui.selectable_value(&mut self.current_view, View::Teachers,    "Profesores");
+            ui.selectable_value(&mut self.current_view, View::Students,    "Alumnos");
         });
 
         egui::CentralPanel::default().show_inside(ui, |ui| {
             render_notifications(ui, &mut self.notifications);
             match self.current_view {
-                View::Courses  => courses::show(ui, &self.client, &mut self.courses_state,  &mut self.notifications),
-                View::Teachers => teachers::show(ui, &self.client, &mut self.teachers_state, &mut self.notifications),
-                View::Students => students::show(ui, &self.client, &mut self.students_state, &mut self.notifications),
+                View::Courses     => courses::show(ui, &self.client, &mut self.courses_state,     &mut self.notifications),
+                View::Enrollments => enrollments::show(ui, &self.client, &mut self.enrollments_state, &mut self.notifications),
+                View::Payments    => payments::show(ui, &self.client, &mut self.payments_state,   &mut self.notifications),
+                View::Teachers    => teachers::show(ui, &self.client, &mut self.teachers_state,   &mut self.notifications),
+                View::Students    => students::show(ui, &self.client, &mut self.students_state,   &mut self.notifications),
             }
         });
     }

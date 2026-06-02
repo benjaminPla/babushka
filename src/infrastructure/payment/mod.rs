@@ -28,6 +28,8 @@ fn pg_err(e: postgres::Error) -> PaymentRepoError {
 fn row_to_payment(row: &Row) -> Result<Payment, PaymentRepoError> {
     let id:            Uuid                  = row.get("id");
     let enrollment_id: Uuid                  = row.get("enrollment_id");
+    let student_name:  String                = row.get("student_name");
+    let course_name:   String                = row.get("course_name");
     let amount_cents:  i32                   = row.get("amount_cents");
     let due_date:      NaiveDate             = row.get("due_date");
     let paid_at:       Option<DateTime<Utc>> = row.get("paid_at");
@@ -39,8 +41,18 @@ fn row_to_payment(row: &Row) -> Result<Payment, PaymentRepoError> {
     let status = PaymentStatus::from_db_str(&status)
         .ok_or_else(|| PaymentRepoError::Database(format!("unknown payment status: {status}")))?;
 
-    Ok(Payment::reconstitute(id, enrollment_id, amount_cents, due_date, paid_at, status, notes, created_at, updated_at))
+    Ok(Payment::reconstitute(id, enrollment_id, student_name, course_name, amount_cents, due_date, paid_at, status, notes, created_at, updated_at))
 }
+
+const SELECT: &str = "
+    SELECT p.id, p.enrollment_id, p.amount_cents, p.due_date, p.paid_at,
+           p.status::text AS status_text, p.notes, p.created_at, p.updated_at,
+           s.first_name || ' ' || s.last_name AS student_name,
+           c.name AS course_name
+    FROM payments p
+    JOIN enrollments e ON e.id = p.enrollment_id
+    JOIN students    s ON s.id = e.student_id
+    JOIN courses     c ON c.id = e.course_id";
 
 impl PaymentRepo for PaymentPgRepo {
     fn create(&self, payment: &Payment) -> Result<(), PaymentRepoError> {
@@ -57,14 +69,26 @@ impl PaymentRepo for PaymentPgRepo {
         Ok(())
     }
 
-    fn get_by_enrollment(&self, enrollment_id: Uuid) -> Result<Vec<Payment>, PaymentRepoError> {
+    fn delete(&self, id: Uuid) -> Result<(), PaymentRepoError> {
+        let n = self.client.lock().unwrap()
+            .execute("DELETE FROM payments WHERE id = $1", &[&id])
+            .map_err(pg_err)?;
+        if n == 0 { return Err(PaymentRepoError::NotFound(id)); }
+        Ok(())
+    }
+
+    fn get_all(&self) -> Result<Vec<Payment>, PaymentRepoError> {
+        let query = format!("{SELECT} ORDER BY p.due_date DESC");
         let rows = self.client.lock().unwrap()
-            .query(
-                "SELECT id, enrollment_id, amount_cents, due_date, paid_at,
-                        status::text AS status_text, notes, created_at, updated_at
-                 FROM payments WHERE enrollment_id = $1 ORDER BY due_date DESC",
-                &[&enrollment_id],
-            )
+            .query(&query, &[])
+            .map_err(pg_err)?;
+        rows.iter().map(row_to_payment).collect()
+    }
+
+    fn get_by_enrollment(&self, enrollment_id: Uuid) -> Result<Vec<Payment>, PaymentRepoError> {
+        let query = format!("{SELECT} WHERE p.enrollment_id = $1 ORDER BY p.due_date DESC");
+        let rows = self.client.lock().unwrap()
+            .query(&query, &[&enrollment_id])
             .map_err(pg_err)?;
         rows.iter().map(row_to_payment).collect()
     }

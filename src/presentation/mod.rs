@@ -1,4 +1,6 @@
 pub mod courses;
+pub mod enrollments;
+pub mod payments;
 pub mod students;
 pub mod teachers;
 

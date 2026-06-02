@@ -6,6 +6,8 @@ use crate::domain::payment::{Payment, PaymentStatus};
 pub struct PaymentDto {
     pub id:            Uuid,
     pub enrollment_id: Uuid,
+    pub student_name:  String,
+    pub course_name:   String,
     pub amount_cents:  i32,
     pub due_date:      NaiveDate,
     pub paid_at:       Option<DateTime<Utc>>,
@@ -20,6 +22,8 @@ impl From<&Payment> for PaymentDto {
         Self {
             id:            p.id(),
             enrollment_id: p.enrollment_id(),
+            student_name:  p.student_name().to_owned(),
+            course_name:   p.course_name().to_owned(),
             amount_cents:  p.amount_cents(),
             due_date:      p.due_date(),
             paid_at:       p.paid_at(),

@@ -30,6 +30,7 @@ fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
     let student_id:     Uuid           = row.get("student_id");
     let student_name:   String         = row.get("student_name");
     let course_id:      Uuid           = row.get("course_id");
+    let course_name:    String         = row.get("course_name");
     let status:         String         = row.get("status_text");
     let latest_payment: Option<String> = row.get("latest_payment");
     let enrolled_at:    DateTime<Utc>  = row.get("enrolled_at");
@@ -38,17 +39,19 @@ fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
     let status = EnrollmentStatus::from_db_str(&status)
         .ok_or_else(|| EnrollmentRepoError::Database(format!("unknown enrollment status: {status}")))?;
 
-    Ok(Enrollment::reconstitute(id, student_id, student_name, course_id, status, latest_payment, enrolled_at, updated_at))
+    Ok(Enrollment::reconstitute(id, student_id, student_name, course_id, course_name, status, latest_payment, enrolled_at, updated_at))
 }
 
 const SELECT: &str = "
     SELECT e.id, e.student_id, e.course_id,
            s.first_name || ' ' || s.last_name AS student_name,
+           c.name AS course_name,
            e.status::text AS status_text,
            e.enrolled_at, e.updated_at,
            p.status::text AS latest_payment
     FROM enrollments e
     JOIN students s ON s.id = e.student_id
+    JOIN courses  c ON c.id = e.course_id
     LEFT JOIN LATERAL (
         SELECT status FROM payments
         WHERE enrollment_id = e.id
@@ -75,6 +78,14 @@ impl EnrollmentRepo for EnrollmentPgRepo {
         Ok(())
     }
 
+    fn get_all(&self) -> Result<Vec<Enrollment>, EnrollmentRepoError> {
+        let query = format!("{SELECT} ORDER BY e.enrolled_at DESC");
+        let rows = self.client.lock().unwrap()
+            .query(&query, &[])
+            .map_err(pg_err)?;
+        rows.iter().map(row_to_enrollment).collect()
+    }
+
     fn get_by_course(&self, course_id: Uuid) -> Result<Vec<Enrollment>, EnrollmentRepoError> {
         let query = format!("{SELECT} WHERE e.course_id = $1 ORDER BY s.last_name, s.first_name");
         let rows = self.client.lock().unwrap()
@@ -87,7 +98,7 @@ impl EnrollmentRepo for EnrollmentPgRepo {
         let query = format!("{SELECT} WHERE e.id = $1");
         let row = self.client.lock().unwrap()
             .query_opt(&query, &[&id])
-            .map_err(|e| EnrollmentRepoError::Database(e.to_string()))?
+            .map_err(pg_err)?
             .ok_or(EnrollmentRepoError::NotFound(id))?;
         row_to_enrollment(&row)
     }
@@ -105,7 +116,7 @@ impl EnrollmentRepo for EnrollmentPgRepo {
     fn update(&self, enrollment: &Enrollment) -> Result<(), EnrollmentRepoError> {
         let n = self.client.lock().unwrap()
             .execute(
-                "UPDATE enrollments SET status = $1::enrollment_status WHERE id = $2",
+                "UPDATE enrollments SET status = $1::text::enrollment_status WHERE id = $2",
                 &[&enrollment.status().as_db_str(), &enrollment.id()],
             )
             .map_err(pg_err)?;

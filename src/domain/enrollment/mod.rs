@@ -43,6 +43,7 @@ pub struct Enrollment {
     student_id:     Uuid,
     student_name:   String,
     course_id:      Uuid,
+    course_name:    String,
     status:         EnrollmentStatus,
     latest_payment: Option<String>,
     enrolled_at:    DateTime<Utc>,
@@ -57,6 +58,7 @@ impl Enrollment {
             student_id,
             student_name:   String::new(),
             course_id,
+            course_name:    String::new(),
             status:         EnrollmentStatus::Active,
             latest_payment: None,
             enrolled_at:    now,
@@ -69,12 +71,13 @@ impl Enrollment {
         student_id:     Uuid,
         student_name:   String,
         course_id:      Uuid,
+        course_name:    String,
         status:         EnrollmentStatus,
         latest_payment: Option<String>,
         enrolled_at:    DateTime<Utc>,
         updated_at:     DateTime<Utc>,
     ) -> Self {
-        Self { id, student_id, student_name, course_id, status, latest_payment, enrolled_at, updated_at }
+        Self { id, student_id, student_name, course_id, course_name, status, latest_payment, enrolled_at, updated_at }
     }
 
     pub fn set_status(&mut self, status: EnrollmentStatus) { self.status = status; }
@@ -83,6 +86,7 @@ impl Enrollment {
     pub fn student_id(&self)     -> Uuid              { self.student_id }
     pub fn student_name(&self)   -> &str              { &self.student_name }
     pub fn course_id(&self)      -> Uuid              { self.course_id }
+    pub fn course_name(&self)    -> &str              { &self.course_name }
     pub fn status(&self)         -> &EnrollmentStatus { &self.status }
     pub fn latest_payment(&self) -> Option<&str>      { self.latest_payment.as_deref() }
     pub fn enrolled_at(&self)    -> DateTime<Utc>     { self.enrolled_at }
