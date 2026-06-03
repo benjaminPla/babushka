@@ -38,21 +38,19 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     };
 
     // ── Header ───────────────────────────────────────────────────────────────
-    ui.horizontal(|ui| {
-        if ui.button("← Volver").clicked() {
-            super::clear_detail_state(state);
-            state.mode = Mode::List;
-            return;
-        }
-        ui.heading(format!("{} {}", student.first_name, student.last_name));
-    });
+    if ui.button("← Volver").clicked() {
+        super::clear_detail_state(state);
+        state.mode = Mode::List;
+        return;
+    }
     ui.separator();
 
     // ── Info section ─────────────────────────────────────────────────────────
     section_header(ui, "Información");
+    ui.heading(format!("{} {}", student.first_name, student.last_name));
     egui::Grid::new("student_info").num_columns(2).show(ui, |ui| {
-        ui.label("Email");    ui.label(&student.email);         ui.end_row();
-        ui.label("Teléfono"); ui.label(&student.phone);         ui.end_row();
+        ui.label("Email");    ui.label(&student.email);            ui.end_row();
+        ui.label("Teléfono"); ui.label(&student.phone);            ui.end_row();
         ui.label("Tipo");     ui.label(student.age_group.label()); ui.end_row();
     });
     ui.add_space(4.0);

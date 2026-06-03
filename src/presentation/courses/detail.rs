@@ -31,20 +31,18 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
-    ui.horizontal(|ui| {
-        if ui.button("← Volver").clicked() {
-            state.mode             = Mode::List;
-            state.selected_course  = None;
-            state.periods          = Vec::new();
-            state.show_period_form = false;
-            return;
-        }
-        ui.heading(format!("{} — {}", course.name, course.age_group.label()));
-    });
+    if ui.button("← Volver").clicked() {
+        state.mode             = Mode::List;
+        state.selected_course  = None;
+        state.periods          = Vec::new();
+        state.show_period_form = false;
+        return;
+    }
     ui.separator();
 
     // ── Info section ──────────────────────────────────────────────────────────
     section_header(ui, "Información");
+    ui.heading(format!("{} — {}", course.name, course.age_group.label()));
     egui::Grid::new("course_detail_info").num_columns(2).show(ui, |ui| {
         ui.label("Profesor");       ui.label(&course.teacher_name);                                   ui.end_row();
         ui.label("Capacidad");      ui.label(course.capacity.to_string());                            ui.end_row();
@@ -59,8 +57,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
 
     // ── Periods section ───────────────────────────────────────────────────────
     if state.show_period_form {
-        ui.heading("Nuevo período");
-        egui::Grid::new("period_form").num_columns(2).show(ui, |ui| {
+        ui.horizontal(|ui| {
             ui.label("Año");
             egui::ComboBox::from_id_salt("period_year")
                 .selected_text(state.period_year.to_string())
@@ -69,7 +66,6 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                         ui.selectable_value(&mut state.period_year, y, y.to_string());
                     }
                 });
-            ui.end_row();
             ui.label("Mes");
             egui::ComboBox::from_id_salt("period_month")
                 .selected_text(MONTHS[(state.period_month - 1) as usize])
@@ -78,17 +74,6 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                         ui.selectable_value(&mut state.period_month, (i + 1) as u32, *name);
                     }
                 });
-            ui.end_row();
-        });
-
-        let preview_label = format!("{} {}", MONTHS[(state.period_month - 1) as usize], state.period_year);
-        ui.label(format!("→ \"{preview_label}\"  01/{:02}/{} — {}/{:02}/{}",
-            state.period_month, state.period_year,
-            last_day_of_month(state.period_year, state.period_month),
-            state.period_month, state.period_year,
-        ));
-
-        ui.horizontal(|ui| {
             if ui.button("Guardar").clicked() {
                 let y = state.period_year;
                 let m = state.period_month;
