@@ -79,7 +79,7 @@ fn art() -> FixedOffset {
 }
 
 pub fn fmt_dt(dt: DateTime<Utc>) -> String {
-    dt.with_timezone(&art()).format("%d-%m-%Y %H:%M").to_string()
+    dt.with_timezone(&art()).format("%d/%m/%Y %H:%M").to_string()
 }
 
 pub fn confirm_delete_modal(ctx: &egui::Context, pending: &mut Option<Uuid>) -> Option<Uuid> {

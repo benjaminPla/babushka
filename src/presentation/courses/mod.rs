@@ -4,7 +4,7 @@ mod list;
 
 use std::sync::{Arc, Mutex};
 
-use chrono::NaiveDate;
+use chrono::Datelike;
 use eframe::egui;
 use postgres::Client;
 use uuid::Uuid;
@@ -47,14 +47,13 @@ pub struct CoursesState {
     pub course_notes: String,
 
     // course detail
-    pub selected_course:    Option<CourseDto>,
-    pub periods:            Vec<CoursePeriodDto>,
+    pub selected_course:      Option<CourseDto>,
+    pub periods:              Vec<CoursePeriodDto>,
     pub needs_reload_periods: bool,
 
     // period form
-    pub period_label:      String,
-    pub period_start_date: Option<NaiveDate>,
-    pub period_end_date:   Option<NaiveDate>,
+    pub period_year:       i32,
+    pub period_month:      u32,
     pub show_period_form:  bool,
 
     // read-only timestamps
@@ -67,6 +66,7 @@ pub struct CoursesState {
 
 impl Default for CoursesState {
     fn default() -> Self {
+        let now = chrono::Local::now();
         Self {
             mode:                    Mode::List,
             courses:                 Vec::new(),
@@ -83,9 +83,8 @@ impl Default for CoursesState {
             selected_course:         None,
             periods:                 Vec::new(),
             needs_reload_periods:    false,
-            period_label:            String::new(),
-            period_start_date:       None,
-            period_end_date:         None,
+            period_year:             now.year(),
+            period_month:            now.month(),
             show_period_form:        false,
             created_at:              String::new(),
             updated_at:              String::new(),

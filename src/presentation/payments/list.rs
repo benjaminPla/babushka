@@ -112,7 +112,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Payments
                 body.row(table::row_height(), |mut row| {
                     row.col(|ui| { ui.label(&p.student_name); });
                     row.col(|ui| { ui.label(&p.course_name); });
-                    row.col(|ui| { ui.label(p.due_date.format("%b %Y").to_string()); });
+                    row.col(|ui| { ui.label(p.due_date.format("%d/%m/%Y").to_string()); });
                     row.col(|ui| { ui.label(format!("${:.2}", p.amount_cents as f64 / 100.0)); });
                     row.col(|ui| {
                         let (text, color) = match p.status {

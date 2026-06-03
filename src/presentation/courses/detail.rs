@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use chrono::{Datelike, Duration, NaiveDate};
 use eframe::egui;
 use postgres::Client;
 use uuid::Uuid;
@@ -56,50 +57,57 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
     if state.show_period_form {
         ui.heading("Nuevo período");
         egui::Grid::new("period_form").num_columns(2).show(ui, |ui| {
-            ui.label("Etiqueta");
-            ui.text_edit_singleline(&mut state.period_label);
+            ui.label("Año");
+            egui::ComboBox::from_id_salt("period_year")
+                .selected_text(state.period_year.to_string())
+                .show_ui(ui, |ui| {
+                    for y in 2024..=2030 {
+                        ui.selectable_value(&mut state.period_year, y, y.to_string());
+                    }
+                });
             ui.end_row();
 
-            ui.label("Fecha inicio");
-            date_picker(ui, "period_start", &mut state.period_start_date);
-            ui.end_row();
-
-            ui.label("Fecha fin");
-            date_picker(ui, "period_end", &mut state.period_end_date);
+            ui.label("Mes");
+            egui::ComboBox::from_id_salt("period_month")
+                .selected_text(MONTHS[(state.period_month - 1) as usize])
+                .show_ui(ui, |ui| {
+                    for (i, name) in MONTHS.iter().enumerate() {
+                        ui.selectable_value(&mut state.period_month, (i + 1) as u32, *name);
+                    }
+                });
             ui.end_row();
         });
 
+        let preview_label = format!("{} {}", MONTHS[(state.period_month - 1) as usize], state.period_year);
+        ui.label(format!("→ \"{preview_label}\"  01/{:02}/{} — {}/{:02}/{}",
+            state.period_month, state.period_year,
+            last_day_of_month(state.period_year, state.period_month),
+            state.period_month, state.period_year,
+        ));
+
         ui.horizontal(|ui| {
             if ui.button("Guardar").clicked() {
-                match (&state.period_start_date, &state.period_end_date) {
-                    (Some(start), Some(end)) => {
-                        let result = CoursePeriodCreateUseCase::new(make_course_period_repo(client))
-                            .execute(CoursePeriodCreateInput {
-                                course_id:  course.id,
-                                label:      state.period_label.clone(),
-                                start_date: *start,
-                                end_date:   *end,
-                            });
-                        match result {
-                            Ok(_) => {
-                                push_success(notifs, "Período creado");
-                                state.show_period_form     = false;
-                                state.period_label         = String::new();
-                                state.period_start_date    = None;
-                                state.period_end_date      = None;
-                                state.needs_reload_periods = true;
-                            }
-                            Err(e) => push_error(notifs, e.to_string()),
-                        }
+                let y = state.period_year;
+                let m = state.period_month;
+                let label      = format!("{} {}", MONTHS[(m - 1) as usize], y);
+                let start_date = NaiveDate::from_ymd_opt(y, m, 1).unwrap();
+                let end_date   = if m == 12 {
+                    NaiveDate::from_ymd_opt(y + 1, 1, 1).unwrap() - Duration::days(1)
+                } else {
+                    NaiveDate::from_ymd_opt(y, m + 1, 1).unwrap() - Duration::days(1)
+                };
+                match CoursePeriodCreateUseCase::new(make_course_period_repo(client))
+                    .execute(CoursePeriodCreateInput { course_id: course.id, label, start_date, end_date }) {
+                    Ok(_) => {
+                        push_success(notifs, "Período creado");
+                        state.show_period_form     = false;
+                        state.needs_reload_periods = true;
                     }
-                    _ => push_error(notifs, "Seleccionar fechas de inicio y fin"),
+                    Err(e) => push_error(notifs, e.to_string()),
                 }
             }
             if ui.button("Cancelar").clicked() {
-                state.show_period_form  = false;
-                state.period_label      = String::new();
-                state.period_start_date = None;
-                state.period_end_date   = None;
+                state.show_period_form = false;
             }
         });
         ui.separator();
@@ -161,11 +169,16 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
     }
 }
 
-// Minimal inline date picker: YYYY-MM-DD text field that parses on change
-fn date_picker(ui: &mut egui::Ui, id: &str, date: &mut Option<chrono::NaiveDate>) {
-    let mut text = date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default();
-    let response = ui.add(egui::TextEdit::singleline(&mut text).hint_text("YYYY-MM-DD").id(egui::Id::new(id)));
-    if response.changed() {
-        *date = chrono::NaiveDate::parse_from_str(&text, "%Y-%m-%d").ok();
-    }
+const MONTHS: [&str; 12] = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+];
+
+fn last_day_of_month(year: i32, month: u32) -> u32 {
+    let first_next = if month == 12 {
+        NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+    } else {
+        NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
+    };
+    (first_next - Duration::days(1)).day()
 }
