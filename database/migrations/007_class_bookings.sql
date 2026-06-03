@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS class_bookings (
     discount_cents  INTEGER        NOT NULL DEFAULT 0,
     discount_reason VARCHAR(500),
     paid_at         TIMESTAMPTZ,
+    payment_method  payment_method,
     status          payment_status NOT NULL DEFAULT 'pending',
     notes           VARCHAR(500),
     created_at      TIMESTAMPTZ    NOT NULL DEFAULT NOW(),

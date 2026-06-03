@@ -1,4 +1,5 @@
 CREATE TYPE payment_status AS ENUM ('pending', 'paid', 'overdue');
+CREATE TYPE payment_method AS ENUM ('cash', 'transfer', 'card');
 
 CREATE TABLE IF NOT EXISTS payments (
     id              UUID           PRIMARY KEY  DEFAULT gen_random_uuid(),
@@ -8,6 +9,7 @@ CREATE TABLE IF NOT EXISTS payments (
     discount_reason VARCHAR(500),
     due_date        DATE           NOT NULL,
     paid_at         TIMESTAMPTZ,
+    payment_method  payment_method,
     status          payment_status NOT NULL DEFAULT 'pending',
     notes           VARCHAR(500),
     created_at      TIMESTAMPTZ    NOT NULL DEFAULT NOW(),
