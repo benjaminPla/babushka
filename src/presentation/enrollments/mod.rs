@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::{
     application::enrollment::{dto::EnrollmentDto, get_all::EnrollmentGetAllUseCase},
-    domain::enrollment::EnrollmentStatus,
+    domain::enrollment::EffectiveStatus,
     infrastructure::enrollment::EnrollmentPgRepo,
     presentation::{push_error, Notifications},
 };
@@ -43,10 +43,10 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Enrollme
     list::show(ui, client, state, notifs);
 }
 
-pub fn status_label_color(s: &EnrollmentStatus) -> egui::Color32 {
+pub fn status_color(s: &EffectiveStatus) -> egui::Color32 {
     match s {
-        EnrollmentStatus::Active    => crate::theme::colors::SUCCESS,
-        EnrollmentStatus::Dropped   => crate::theme::colors::ERROR,
-        EnrollmentStatus::Completed => crate::theme::colors::TEXT_MUTED,
+        EffectiveStatus::Active    => crate::theme::colors::SUCCESS,
+        EffectiveStatus::Dropped   => crate::theme::colors::ERROR,
+        EffectiveStatus::Completed => crate::theme::colors::TEXT_MUTED,
     }
 }

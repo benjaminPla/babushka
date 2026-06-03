@@ -7,21 +7,19 @@ use uuid::Uuid;
 use crate::{
     application::enrollment::{
         delete::EnrollmentDeleteUseCase,
-        update_status::{EnrollmentUpdateStatusInput, EnrollmentUpdateStatusUseCase},
+        set_dropped::{EnrollmentSetDroppedInput, EnrollmentSetDroppedUseCase},
     },
-    domain::enrollment::EnrollmentStatus,
+    domain::enrollment::EffectiveStatus,
     presentation::{confirm_delete_modal, fmt_dt, push_error, push_success, Notifications},
     presentation::table::{self, Column},
 };
 
-use super::{EnrollmentsState, make_enrollment_repo, status_label_color};
+use super::{EnrollmentsState, make_enrollment_repo, status_color};
 
-enum Action { ChangeStatus(EnrollmentStatus), Delete }
+enum Action { SetDropped(bool), Delete }
 
 pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut EnrollmentsState, notifs: &mut Notifications) {
-    ui.horizontal(|ui| {
-        ui.heading("Inscripciones");
-    });
+    ui.horizontal(|ui| { ui.heading("Inscripciones"); });
     ui.separator();
 
     let mut action: Option<(Action, Uuid)> = None;
@@ -45,11 +43,12 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Enrollme
         })
         .body(|mut body| {
             for e in &state.enrollments {
+                let status = e.effective_status();
                 body.row(table::row_height(), |mut row| {
                     row.col(|ui| { ui.label(&e.student_name); });
                     row.col(|ui| { ui.label(&e.course_name); });
                     row.col(|ui| { ui.label(&e.period_label); });
-                    row.col(|ui| { ui.colored_label(status_label_color(&e.status), e.status.label()); });
+                    row.col(|ui| { ui.colored_label(status_color(&status), status.label()); });
                     row.col(|ui| {
                         match e.latest_payment.as_deref() {
                             None            => { ui.label("—"); }
@@ -60,15 +59,19 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Enrollme
                     });
                     row.col(|ui| { ui.label(fmt_dt(e.enrolled_at)); });
                     row.col(|ui| {
-                        egui::ComboBox::from_id_salt(format!("enr_status_{}", e.id))
-                            .selected_text(e.status.label())
-                            .show_ui(ui, |ui| {
-                                for s in [EnrollmentStatus::Active, EnrollmentStatus::Dropped, EnrollmentStatus::Completed] {
-                                    if ui.selectable_label(e.status == s, s.label()).clicked() {
-                                        action = Some((Action::ChangeStatus(s), e.id));
-                                    }
+                        match status {
+                            EffectiveStatus::Dropped => {
+                                if ui.small_button("Reactivar").clicked() {
+                                    action = Some((Action::SetDropped(false), e.id));
                                 }
-                            });
+                            }
+                            EffectiveStatus::Active => {
+                                if ui.small_button("Dar de baja").clicked() {
+                                    action = Some((Action::SetDropped(true), e.id));
+                                }
+                            }
+                            EffectiveStatus::Completed => {}
+                        }
                         if ui.small_button("🗑").clicked() { action = Some((Action::Delete, e.id)); }
                     });
                 });
@@ -77,9 +80,9 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Enrollme
 
     if let Some((act, id)) = action {
         match act {
-            Action::ChangeStatus(new_status) => {
-                match EnrollmentUpdateStatusUseCase::new(make_enrollment_repo(client))
-                    .execute(EnrollmentUpdateStatusInput { id, status: new_status }) {
+            Action::SetDropped(dropped) => {
+                match EnrollmentSetDroppedUseCase::new(make_enrollment_repo(client))
+                    .execute(EnrollmentSetDroppedInput { id, dropped }) {
                     Ok(_)  => state.needs_reload = true,
                     Err(e) => push_error(notifs, e.to_string()),
                 }

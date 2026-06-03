@@ -2,7 +2,7 @@
 - [ ] add filters instead of selectors (ei: enrollements view students and courses)
 - [x] add Cargo.toml version, if possible, to 1.0
 - [x] check discounts and partial payments strategy, idea: add payment + a discount row
-- [ ] enrollements status need to be automatically completed on course now >= endtime
+- [x] enrollements status need to be automatically completed on course now >= endtime
 - [x] enrollements must add individual classes andnot full courses
 - [x] payments -> add payment method -> cash, transfer, card
 - [x] check delete cascade and delete confirmation

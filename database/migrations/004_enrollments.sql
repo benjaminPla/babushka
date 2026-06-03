@@ -1,12 +1,10 @@
-CREATE TYPE enrollment_status AS ENUM ('active', 'dropped', 'completed');
-
 CREATE TABLE IF NOT EXISTS enrollments (
-    id               UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
-    student_id       UUID              NOT NULL REFERENCES students(id),
-    course_period_id UUID              NOT NULL REFERENCES course_periods(id) ON DELETE CASCADE,
-    status           enrollment_status NOT NULL DEFAULT 'active',
-    enrolled_at      TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id       UUID        NOT NULL REFERENCES students(id),
+    course_period_id UUID        NOT NULL REFERENCES course_periods(id) ON DELETE CASCADE,
+    dropped_at       TIMESTAMPTZ,
+    enrolled_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     notes            VARCHAR(500),
 
     CONSTRAINT enrollments_unique
@@ -45,7 +43,7 @@ DECLARE
     active_count INTEGER;
     max_capacity SMALLINT;
 BEGIN
-    IF NEW.status = 'active' AND (TG_OP = 'INSERT' OR OLD.status <> 'active') THEN
+    IF NEW.dropped_at IS NULL AND (TG_OP = 'INSERT' OR OLD.dropped_at IS NOT NULL) THEN
         SELECT COUNT(e.id),
                (SELECT c.capacity
                 FROM course_periods cp
@@ -54,7 +52,7 @@ BEGIN
         INTO active_count, max_capacity
         FROM enrollments e
         WHERE e.course_period_id = NEW.course_period_id
-          AND e.status = 'active'
+          AND e.dropped_at IS NULL
           AND e.id <> COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::UUID);
 
         IF COALESCE(active_count, 0) >= max_capacity THEN
