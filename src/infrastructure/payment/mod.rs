@@ -27,10 +27,8 @@ fn pg_err(e: postgres::Error) -> PaymentRepoError {
 
 fn row_to_payment(row: &Row) -> Result<Payment, PaymentRepoError> {
     let id:             Uuid                  = row.get("id");
-    let enrollment_id:  Uuid                  = row.get("enrollment_id");
+    let student_id:     Uuid                  = row.get("student_id");
     let student_name:   String                = row.get("student_name");
-    let course_name:    String                = row.get("course_name");
-    let period_label:   String                = row.get("period_label");
     let amount_cents:   i32                   = row.get("amount_cents");
     let discount_cents: i32                   = row.get("discount_cents");
     let due_date:       NaiveDate             = row.get("due_date");
@@ -44,30 +42,25 @@ fn row_to_payment(row: &Row) -> Result<Payment, PaymentRepoError> {
     let status = PaymentStatus::from_db_str(&status)
         .ok_or_else(|| PaymentRepoError::Database(format!("unknown payment status: {status}")))?;
 
-    Ok(Payment::reconstitute(id, enrollment_id, student_name, course_name, period_label, amount_cents, discount_cents, due_date, paid_at, payment_method, status, notes, created_at, updated_at))
+    Ok(Payment::reconstitute(id, student_id, student_name, amount_cents, discount_cents, due_date, paid_at, payment_method, status, notes, created_at, updated_at))
 }
 
 const SELECT: &str = "
-    SELECT p.id, p.enrollment_id, p.amount_cents, p.discount_cents, p.due_date, p.paid_at,
-           p.status::text AS status_text,
+    SELECT p.id, p.student_id, p.amount_cents, p.discount_cents, p.due_date, p.paid_at,
+           p.status::text         AS status_text,
            p.payment_method::text AS payment_method_text,
            p.notes, p.created_at, p.updated_at,
-           s.first_name || ' ' || s.last_name AS student_name,
-           c.name   AS course_name,
-           cp.label AS period_label
+           s.first_name || ' ' || s.last_name AS student_name
     FROM payments p
-    JOIN enrollments    e  ON e.id  = p.enrollment_id
-    JOIN students       s  ON s.id  = e.student_id
-    JOIN course_periods cp ON cp.id = e.course_period_id
-    JOIN courses        c  ON c.id  = cp.course_id";
+    JOIN students s ON s.id = p.student_id";
 
 impl PaymentRepo for PaymentPgRepo {
     fn create(&self, payment: &Payment) -> Result<(), PaymentRepoError> {
         self.client.lock().unwrap()
             .execute(
-                "INSERT INTO payments (id, enrollment_id, amount_cents, due_date, notes)
+                "INSERT INTO payments (id, student_id, amount_cents, due_date, notes)
                  VALUES ($1, $2, $3, $4, $5)",
-                &[&payment.id(), &payment.enrollment_id(), &payment.amount_cents(), &payment.due_date(), &payment.notes()],
+                &[&payment.id(), &payment.student_id(), &payment.amount_cents(), &payment.due_date(), &payment.notes()],
             )
             .map_err(pg_err)?;
         Ok(())
@@ -87,14 +80,8 @@ impl PaymentRepo for PaymentPgRepo {
         rows.iter().map(row_to_payment).collect()
     }
 
-    fn get_by_enrollment(&self, enrollment_id: Uuid) -> Result<Vec<Payment>, PaymentRepoError> {
-        let query = format!("{SELECT} WHERE p.enrollment_id = $1 ORDER BY p.due_date DESC");
-        let rows = self.client.lock().unwrap().query(&query, &[&enrollment_id]).map_err(pg_err)?;
-        rows.iter().map(row_to_payment).collect()
-    }
-
     fn get_by_student(&self, student_id: Uuid) -> Result<Vec<Payment>, PaymentRepoError> {
-        let query = format!("{SELECT} WHERE e.student_id = $1 ORDER BY p.created_at ASC");
+        let query = format!("{SELECT} WHERE p.student_id = $1 ORDER BY p.created_at ASC");
         let rows = self.client.lock().unwrap().query(&query, &[&student_id]).map_err(pg_err)?;
         rows.iter().map(row_to_payment).collect()
     }

@@ -6,10 +6,8 @@ use crate::domain::payment::{Payment, PaymentStatus};
 #[derive(Clone)]
 pub struct PaymentDto {
     pub id:             Uuid,
-    pub enrollment_id:  Uuid,
+    pub student_id:     Uuid,
     pub student_name:   String,
-    pub course_name:    String,
-    pub period_label:   String,
     pub amount_cents:   i32,
     pub discount_cents: i32,
     pub due_date:       NaiveDate,
@@ -25,10 +23,8 @@ impl From<&Payment> for PaymentDto {
     fn from(p: &Payment) -> Self {
         Self {
             id:             p.id(),
-            enrollment_id:  p.enrollment_id(),
+            student_id:     p.student_id(),
             student_name:   p.student_name().to_owned(),
-            course_name:    p.course_name().to_owned(),
-            period_label:   p.period_label().to_owned(),
             amount_cents:   p.amount_cents(),
             discount_cents: p.discount_cents(),
             due_date:       p.due_date(),

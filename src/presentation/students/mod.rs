@@ -13,7 +13,6 @@ use crate::{
     application::{
         course::dto::CourseDto,
         course_period::dto::CoursePeriodDto,
-        enrollment::dto::EnrollmentDto,
         student::{dto::StudentDto, get_all::StudentGetAllUseCase},
         student_ledger::LedgerEntry,
     },
@@ -61,11 +60,9 @@ pub struct StudentsState {
     pub enroll_sel_period: Option<Uuid>,
 
     // payment form
-    pub show_payment_form:      bool,
-    pub payment_enrollments:    Vec<EnrollmentDto>,
-    pub payment_sel_enrollment: Option<Uuid>,
-    pub payment_amount:         String,
-    pub payment_due_date:       NaiveDate,
+    pub show_payment_form: bool,
+    pub payment_amount:    String,
+    pub payment_due_date:  NaiveDate,
 
     pub confirm_delete: Option<Uuid>,
 }
@@ -99,11 +96,9 @@ impl Default for StudentsState {
             enroll_sel_course:      None,
             enroll_periods:         Vec::new(),
             enroll_sel_period:      None,
-            show_payment_form:      false,
-            payment_enrollments:    Vec::new(),
-            payment_sel_enrollment: None,
-            payment_amount:         String::new(),
-            payment_due_date:       today(),
+            show_payment_form: false,
+            payment_amount:    String::new(),
+            payment_due_date:  today(),
             confirm_delete:         None,
         }
     }
@@ -135,11 +130,9 @@ pub fn clear_detail_state(state: &mut StudentsState) {
     state.enroll_sel_course      = None;
     state.enroll_periods         = Vec::new();
     state.enroll_sel_period      = None;
-    state.show_payment_form      = false;
-    state.payment_enrollments    = Vec::new();
-    state.payment_sel_enrollment = None;
-    state.payment_amount         = String::new();
-    state.payment_due_date       = today();
+    state.show_payment_form = false;
+    state.payment_amount    = String::new();
+    state.payment_due_date  = today();
     state.confirm_delete         = None;
 }
 

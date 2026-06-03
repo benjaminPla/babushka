@@ -71,7 +71,7 @@ impl StudentLedgerUseCase {
                 raw.push((p.paid_at().unwrap_or(p.created_at()), LedgerEntry {
                     id:              p.id(),
                     kind:            LedgerKind::Credit,
-                    description:     format!("Pago ({}) — {} {}", method, p.course_name(), p.period_label()),
+                    description:     format!("Pago ({})", method),
                     amount_cents:    p.amount_cents(),
                     running_balance: 0,
                     date:            p.paid_at().unwrap_or(p.created_at()),

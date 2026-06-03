@@ -9,10 +9,10 @@ use crate::{
 };
 
 pub struct PaymentCreateInput {
-    pub enrollment_id: Uuid,
-    pub amount_cents:  i32,
-    pub due_date:      NaiveDate,
-    pub notes:         Option<String>,
+    pub student_id:   Uuid,
+    pub amount_cents: i32,
+    pub due_date:     NaiveDate,
+    pub notes:        Option<String>,
 }
 
 pub struct PaymentCreateUseCase {
@@ -26,9 +26,9 @@ impl PaymentCreateUseCase {
         if input.amount_cents <= 0 {
             return Err(PaymentAppError::Validation("el monto debe ser mayor a 0".into()));
         }
-        let payment = Payment::new(input.enrollment_id, input.amount_cents, input.due_date, input.notes);
+        let payment = Payment::new(input.student_id, input.amount_cents, input.due_date, input.notes);
         self.payment_repo.create(&payment)?;
-        log::info!("[payment] created: id={} enrollment={} due={}", payment.id(), input.enrollment_id, input.due_date);
+        log::info!("[payment] created: id={} student={} due={}", payment.id(), input.student_id, input.due_date);
         Ok(())
     }
 }
