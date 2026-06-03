@@ -1,16 +1,16 @@
 CREATE TYPE enrollment_status AS ENUM ('active', 'dropped', 'completed');
 
 CREATE TABLE IF NOT EXISTS enrollments (
-    id          UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
-    student_id  UUID              NOT NULL REFERENCES students(id),
-    course_id   UUID              NOT NULL REFERENCES courses(id),
-    status      enrollment_status NOT NULL DEFAULT 'active',
-    enrolled_at TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
-    notes       VARCHAR(500),
+    id               UUID              PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id       UUID              NOT NULL REFERENCES students(id),
+    course_period_id UUID              NOT NULL REFERENCES course_periods(id) ON DELETE CASCADE,
+    status           enrollment_status NOT NULL DEFAULT 'active',
+    enrolled_at      TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ       NOT NULL DEFAULT NOW(),
+    notes            VARCHAR(500),
 
     CONSTRAINT enrollments_unique
-        UNIQUE (student_id, course_id)
+        UNIQUE (student_id, course_period_id)
 );
 
 DROP TRIGGER IF EXISTS enrollments_set_updated_at ON enrollments;
@@ -19,12 +19,14 @@ CREATE TRIGGER enrollments_set_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
--- Enforce age_group match between student and course
 CREATE OR REPLACE FUNCTION check_enrollment_age_group()
 RETURNS TRIGGER AS $$
 BEGIN
     IF (SELECT age_group FROM students WHERE id = NEW.student_id) <>
-       (SELECT age_group FROM courses   WHERE id = NEW.course_id) THEN
+       (SELECT c.age_group
+        FROM course_periods cp
+        JOIN courses c ON c.id = cp.course_id
+        WHERE cp.id = NEW.course_period_id) THEN
         RAISE EXCEPTION 'student age_group does not match course age_group';
     END IF;
     RETURN NEW;
@@ -37,7 +39,6 @@ CREATE TRIGGER enrollments_check_age_group
     FOR EACH ROW
     EXECUTE FUNCTION check_enrollment_age_group();
 
--- Enforce course capacity (count only active enrollments)
 CREATE OR REPLACE FUNCTION check_enrollment_capacity()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -45,14 +46,16 @@ DECLARE
     max_capacity SMALLINT;
 BEGIN
     IF NEW.status = 'active' AND (TG_OP = 'INSERT' OR OLD.status <> 'active') THEN
-        SELECT COUNT(*), c.capacity
+        SELECT COUNT(e.id),
+               (SELECT c.capacity
+                FROM course_periods cp
+                JOIN courses c ON c.id = cp.course_id
+                WHERE cp.id = NEW.course_period_id)
         INTO active_count, max_capacity
         FROM enrollments e
-        JOIN courses c ON c.id = NEW.course_id
-        WHERE e.course_id = NEW.course_id
+        WHERE e.course_period_id = NEW.course_period_id
           AND e.status = 'active'
-          AND e.id <> COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::UUID)
-        GROUP BY c.capacity;
+          AND e.id <> COALESCE(NEW.id, '00000000-0000-0000-0000-000000000000'::UUID);
 
         IF COALESCE(active_count, 0) >= max_capacity THEN
             RAISE EXCEPTION 'course has reached maximum capacity of %', max_capacity;

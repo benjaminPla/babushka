@@ -31,12 +31,15 @@ CREATE TRIGGER class_bookings_set_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
--- Enforce age_group match between student and class's course
 CREATE OR REPLACE FUNCTION check_class_booking_age_group()
 RETURNS TRIGGER AS $$
 BEGIN
     IF (SELECT age_group FROM students WHERE id = NEW.student_id) <>
-       (SELECT c.age_group FROM classes cl JOIN courses c ON c.id = cl.course_id WHERE cl.id = NEW.class_id) THEN
+       (SELECT c.age_group
+        FROM classes cl
+        JOIN course_periods cp ON cp.id = cl.course_period_id
+        JOIN courses c ON c.id = cp.course_id
+        WHERE cl.id = NEW.class_id) THEN
         RAISE EXCEPTION 'student age_group does not match course age_group';
     END IF;
     RETURN NEW;

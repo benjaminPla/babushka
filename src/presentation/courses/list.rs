@@ -35,15 +35,15 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
         .column(Column::auto().at_least(60.0))
         .column(Column::exact(60.0))
         .column(Column::exact(70.0))
-        .column(Column::exact(70.0))
+        .column(Column::exact(80.0))
         .column(Column::auto())
         .header(table::header_height(), |mut h| {
             h.col(|ui| table::head(ui, "Nombre"));
             h.col(|ui| table::head(ui, "Profesor"));
             h.col(|ui| table::head(ui, "Grupo"));
             h.col(|ui| table::head(ui, "Cap."));
-            h.col(|ui| table::head(ui, "Precio"));
-            h.col(|ui| table::head(ui, "Inscritos"));
+            h.col(|ui| table::head(ui, "Mensual"));
+            h.col(|ui| table::head(ui, "Por clase"));
             h.col(|ui| table::head(ui, ""));
         })
         .body(|mut body| {
@@ -54,7 +54,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                     row.col(|ui| { ui.label(c.age_group.label()); });
                     row.col(|ui| { ui.label(c.capacity.to_string()); });
                     row.col(|ui| { ui.label(format_price(c.price_cents)); });
-                    row.col(|ui| { ui.label(format!("{}/{}", c.enrolled, c.capacity)); });
+                    row.col(|ui| { ui.label(format_price(c.class_price_cents)); });
                     row.col(|ui| {
                         if ui.small_button("Ver").clicked()      { action = Some((Action::Open,   c.id)); }
                         if ui.small_button("Editar").clicked()   { action = Some((Action::Edit,   c.id)); }
@@ -68,9 +68,8 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
         match act {
             Action::Open => {
                 if let Some(c) = state.courses.iter().find(|c| c.id == id) {
-                    state.selected_course          = Some(c.clone());
-                    state.needs_reload_enrollments = true;
-                    state.mode                     = Mode::Detail;
+                    state.selected_course = Some(c.clone());
+                    state.mode            = Mode::Detail;
                 }
             }
             Action::Edit => {
@@ -81,6 +80,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                     state.age_group    = c.age_group.clone();
                     state.capacity     = c.capacity.to_string();
                     state.price        = format_price(c.price_cents);
+                    state.class_price  = format_price(c.class_price_cents);
                     state.course_notes = c.notes.clone().unwrap_or_default();
                     state.created_at   = fmt_dt(c.created_at);
                     state.updated_at   = fmt_dt(c.updated_at);

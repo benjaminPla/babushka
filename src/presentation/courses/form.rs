@@ -58,8 +58,12 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
         ui.text_edit_singleline(&mut state.capacity);
         ui.end_row();
 
-        ui.label("Precio");
+        ui.label("Precio mensual");
         ui.text_edit_singleline(&mut state.price);
+        ui.end_row();
+
+        ui.label("Precio por clase");
+        ui.text_edit_singleline(&mut state.class_price);
         ui.end_row();
 
         ui.label("Notas");
@@ -83,18 +87,22 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
         };
         let price_cents = match parse_price(&state.price) {
             Some(v) => v,
-            None    => { push_error(notifs, "Precio inválido"); return; }
+            None    => { push_error(notifs, "Precio mensual inválido"); return; }
+        };
+        let class_price_cents = match parse_price(&state.class_price) {
+            Some(v) => v,
+            None    => { push_error(notifs, "Precio por clase inválido"); return; }
         };
         let notes = if state.course_notes.trim().is_empty() { None } else { Some(state.course_notes.clone()) };
 
         let result = match state.mode {
             Mode::CreateCourse => CourseCreateUseCase::new(make_course_repo(client)).execute(CourseCreateInput {
                 teacher_id, name: state.name.clone(), age_group: state.age_group.clone(),
-                capacity, price_cents, notes,
+                capacity, price_cents, class_price_cents, notes,
             }),
             Mode::EditCourse => CourseUpdateUseCase::new(make_course_repo(client)).execute(CourseUpdateInput {
                 id: state.editing_id.unwrap(), teacher_id, name: state.name.clone(),
-                age_group: state.age_group.clone(), capacity, price_cents, notes,
+                age_group: state.age_group.clone(), capacity, price_cents, class_price_cents, notes,
             }),
             _ => unreachable!(),
         };
