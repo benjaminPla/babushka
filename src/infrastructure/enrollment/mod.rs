@@ -26,23 +26,24 @@ fn pg_err(e: postgres::Error) -> EnrollmentRepoError {
 }
 
 fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
-    let id:               Uuid                   = row.get("id");
-    let student_id:       Uuid                   = row.get("student_id");
-    let student_name:     String                 = row.get("student_name");
-    let course_period_id: Uuid                   = row.get("course_period_id");
-    let period_label:     String                 = row.get("period_label");
-    let period_end_date:  NaiveDate              = row.get("period_end_date");
-    let course_name:      String                 = row.get("course_name");
-    let dropped_at:       Option<DateTime<Utc>>  = row.get("dropped_at");
-    let latest_payment:   Option<String>         = row.get("latest_payment");
-    let enrolled_at:      DateTime<Utc>          = row.get("enrolled_at");
-    let updated_at:       DateTime<Utc>          = row.get("updated_at");
+    let id:                 Uuid                  = row.get("id");
+    let student_id:         Uuid                  = row.get("student_id");
+    let student_name:       String                = row.get("student_name");
+    let course_period_id:   Uuid                  = row.get("course_period_id");
+    let period_label:       String                = row.get("period_label");
+    let period_end_date:    NaiveDate             = row.get("period_end_date");
+    let course_name:        String                = row.get("course_name");
+    let agreed_price_cents: i32                   = row.get("agreed_price_cents");
+    let dropped_at:         Option<DateTime<Utc>> = row.get("dropped_at");
+    let latest_payment:     Option<String>        = row.get("latest_payment");
+    let enrolled_at:        DateTime<Utc>         = row.get("enrolled_at");
+    let updated_at:         DateTime<Utc>         = row.get("updated_at");
 
-    Ok(Enrollment::reconstitute(id, student_id, student_name, course_period_id, period_label, period_end_date, course_name, dropped_at, latest_payment, enrolled_at, updated_at))
+    Ok(Enrollment::reconstitute(id, student_id, student_name, course_period_id, period_label, period_end_date, course_name, agreed_price_cents, dropped_at, latest_payment, enrolled_at, updated_at))
 }
 
 const SELECT: &str = "
-    SELECT e.id, e.student_id, e.course_period_id, e.dropped_at,
+    SELECT e.id, e.student_id, e.course_period_id, e.dropped_at, e.agreed_price_cents,
            s.first_name || ' ' || s.last_name AS student_name,
            cp.label    AS period_label,
            cp.end_date AS period_end_date,
@@ -63,9 +64,9 @@ impl EnrollmentRepo for EnrollmentPgRepo {
     fn create(&self, enrollment: &Enrollment) -> Result<(), EnrollmentRepoError> {
         self.client.lock().unwrap()
             .execute(
-                "INSERT INTO enrollments (id, student_id, course_period_id)
-                 VALUES ($1, $2, $3)",
-                &[&enrollment.id(), &enrollment.student_id(), &enrollment.course_period_id()],
+                "INSERT INTO enrollments (id, student_id, course_period_id, agreed_price_cents)
+                 VALUES ($1, $2, $3, $4)",
+                &[&enrollment.id(), &enrollment.student_id(), &enrollment.course_period_id(), &enrollment.agreed_price_cents()],
             )
             .map_err(pg_err)?;
         Ok(())

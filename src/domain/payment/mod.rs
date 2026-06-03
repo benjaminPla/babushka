@@ -38,71 +38,74 @@ impl PaymentStatus {
 }
 
 pub struct Payment {
-    id:            Uuid,
-    enrollment_id: Uuid,
-    student_name:  String,
-    course_name:   String,
-    period_label:  String,
-    amount_cents:  i32,
-    due_date:      NaiveDate,
-    paid_at:       Option<DateTime<Utc>>,
-    status:        PaymentStatus,
-    notes:         Option<String>,
-    created_at:    DateTime<Utc>,
-    updated_at:    DateTime<Utc>,
+    id:             Uuid,
+    enrollment_id:  Uuid,
+    student_name:   String,
+    course_name:    String,
+    period_label:   String,
+    amount_cents:   i32,
+    discount_cents: i32,
+    due_date:       NaiveDate,
+    paid_at:        Option<DateTime<Utc>>,
+    payment_method: Option<String>,
+    status:         PaymentStatus,
+    notes:          Option<String>,
+    created_at:     DateTime<Utc>,
+    updated_at:     DateTime<Utc>,
 }
 
 impl Payment {
-    pub fn new(
-        enrollment_id: Uuid,
-        amount_cents:  i32,
-        due_date:      NaiveDate,
-        notes:         Option<String>,
-    ) -> Self {
+    pub fn new(enrollment_id: Uuid, amount_cents: i32, due_date: NaiveDate, notes: Option<String>) -> Self {
         let now = Utc::now();
         Self {
-            id:            Uuid::new_v4(),
+            id:             Uuid::new_v4(),
             enrollment_id,
-            student_name:  String::new(),
-            course_name:   String::new(),
-            period_label:  String::new(),
+            student_name:   String::new(),
+            course_name:    String::new(),
+            period_label:   String::new(),
             amount_cents,
+            discount_cents: 0,
             due_date,
-            paid_at:       None,
-            status:        PaymentStatus::Pending,
+            paid_at:        None,
+            payment_method: None,
+            status:         PaymentStatus::Pending,
             notes,
-            created_at:    now,
-            updated_at:    now,
+            created_at:     now,
+            updated_at:     now,
         }
     }
 
     pub fn reconstitute(
-        id:            Uuid,
-        enrollment_id: Uuid,
-        student_name:  String,
-        course_name:   String,
-        period_label:  String,
-        amount_cents:  i32,
-        due_date:      NaiveDate,
-        paid_at:       Option<DateTime<Utc>>,
-        status:        PaymentStatus,
-        notes:         Option<String>,
-        created_at:    DateTime<Utc>,
-        updated_at:    DateTime<Utc>,
+        id:             Uuid,
+        enrollment_id:  Uuid,
+        student_name:   String,
+        course_name:    String,
+        period_label:   String,
+        amount_cents:   i32,
+        discount_cents: i32,
+        due_date:       NaiveDate,
+        paid_at:        Option<DateTime<Utc>>,
+        payment_method: Option<String>,
+        status:         PaymentStatus,
+        notes:          Option<String>,
+        created_at:     DateTime<Utc>,
+        updated_at:     DateTime<Utc>,
     ) -> Self {
-        Self { id, enrollment_id, student_name, course_name, period_label, amount_cents, due_date, paid_at, status, notes, created_at, updated_at }
+        Self { id, enrollment_id, student_name, course_name, period_label, amount_cents, discount_cents, due_date, paid_at, payment_method, status, notes, created_at, updated_at }
     }
 
-    pub fn id(&self)            -> Uuid                  { self.id }
-    pub fn enrollment_id(&self) -> Uuid                  { self.enrollment_id }
-    pub fn student_name(&self)  -> &str                  { &self.student_name }
-    pub fn course_name(&self)   -> &str                  { &self.course_name }
-    pub fn period_label(&self)  -> &str                  { &self.period_label }
-    pub fn amount_cents(&self)  -> i32                   { self.amount_cents }
-    pub fn due_date(&self)      -> NaiveDate             { self.due_date }
-    pub fn paid_at(&self)       -> Option<DateTime<Utc>> { self.paid_at }
-    pub fn status(&self)        -> &PaymentStatus        { &self.status }
-    pub fn notes(&self)         -> Option<&str>          { self.notes.as_deref() }
-    pub fn created_at(&self)    -> DateTime<Utc>         { self.created_at }
-    pub fn updated_at(&self)    -> DateTime<Utc>         { self.updated_at }
+    pub fn id(&self)             -> Uuid                  { self.id }
+    pub fn enrollment_id(&self)  -> Uuid                  { self.enrollment_id }
+    pub fn student_name(&self)   -> &str                  { &self.student_name }
+    pub fn course_name(&self)    -> &str                  { &self.course_name }
+    pub fn period_label(&self)   -> &str                  { &self.period_label }
+    pub fn amount_cents(&self)   -> i32                   { self.amount_cents }
+    pub fn discount_cents(&self) -> i32                   { self.discount_cents }
+    pub fn due_date(&self)       -> NaiveDate             { self.due_date }
+    pub fn paid_at(&self)        -> Option<DateTime<Utc>> { self.paid_at }
+    pub fn payment_method(&self) -> Option<&str>          { self.payment_method.as_deref() }
+    pub fn status(&self)         -> &PaymentStatus        { &self.status }
+    pub fn notes(&self)          -> Option<&str>          { self.notes.as_deref() }
+    pub fn created_at(&self)     -> DateTime<Utc>         { self.created_at }
+    pub fn updated_at(&self)     -> DateTime<Utc>         { self.updated_at }
 }

@@ -12,22 +12,24 @@ use crate::{
             create::{EnrollmentCreateInput, EnrollmentCreateUseCase},
             delete::EnrollmentDeleteUseCase,
             get_by_student::EnrollmentGetByStudentUseCase,
-            set_dropped::{EnrollmentSetDroppedInput, EnrollmentSetDroppedUseCase},
         },
         payment::{
             create::{PaymentCreateInput, PaymentCreateUseCase},
             delete::PaymentDeleteUseCase,
-            get_by_student::PaymentGetByStudentUseCase,
             mark_paid::PaymentMarkPaidUseCase,
         },
+        student_ledger::{LedgerKind, StudentLedgerUseCase},
     },
-    domain::{enrollment::EffectiveStatus, payment::PaymentStatus},
-    presentation::{confirm_delete_modal, date_selector, fmt_dt, push_error, push_success, section_header, Notifications},
+    domain::payment::PaymentStatus,
+    presentation::{
+        confirm_delete_modal, date_selector, fmt_dt, push_error, push_success, section_header,
+        Notifications,
+    },
     presentation::table::{self, Column},
 };
 
 use super::{
-    DetailTab, Mode, StudentsState,
+    Mode, StudentsState,
     make_course_period_repo, make_course_repo, make_enrollment_repo, make_payment_repo,
 };
 
@@ -37,7 +39,19 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
         None    => { state.mode = Mode::List; return; }
     };
 
-    // ── Header ───────────────────────────────────────────────────────────────
+    if state.needs_reload_ledger {
+        let ledger_uc = StudentLedgerUseCase::new(make_enrollment_repo(client), make_payment_repo(client));
+        match ledger_uc.execute(student.id) {
+            Ok((entries, balance)) => {
+                state.ledger              = entries;
+                state.balance_cents       = balance;
+                state.needs_reload_ledger = false;
+            }
+            Err(e) => push_error(notifs, e.to_string()),
+        }
+    }
+
+    // ── Navigation ────────────────────────────────────────────────────────────
     if ui.button("← Volver").clicked() {
         super::clear_detail_state(state);
         state.mode = Mode::List;
@@ -45,49 +59,48 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     }
     ui.separator();
 
-    // ── Info section ─────────────────────────────────────────────────────────
+    // ── Información ───────────────────────────────────────────────────────────
     section_header(ui, "Información");
     ui.heading(format!("{} {}", student.first_name, student.last_name));
-    egui::Grid::new("student_info").num_columns(2).show(ui, |ui| {
-        ui.label("Email");    ui.label(&student.email);            ui.end_row();
-        ui.label("Teléfono"); ui.label(&student.phone);            ui.end_row();
-        ui.label("Tipo");     ui.label(student.age_group.label()); ui.end_row();
-    });
+    ui.label(format!("{} · {} · {}", student.age_group.label(), student.email, student.phone));
     ui.add_space(4.0);
-    ui.separator();
 
-    // ── Tabs ─────────────────────────────────────────────────────────────────
+    // ── Actions + balance ─────────────────────────────────────────────────────
     ui.horizontal(|ui| {
-        ui.selectable_value(&mut state.detail_tab, DetailTab::Inscripciones, "Inscripciones");
-        ui.selectable_value(&mut state.detail_tab, DetailTab::Pagos,         "Pagos");
+        let (bal_color, bal_text) = if state.balance_cents >= 0 {
+            (crate::theme::colors::SUCCESS, format!("Balance: +${:.2}", state.balance_cents as f64 / 100.0))
+        } else {
+            (crate::theme::colors::ERROR,   format!("Balance: -${:.2}", state.balance_cents.unsigned_abs() as f64 / 100.0))
+        };
+        ui.colored_label(bal_color, bal_text);
+
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if ui.button("+ Pago").clicked() && !state.show_payment_form {
+                if let Ok(enrollments) = EnrollmentGetByStudentUseCase::new(make_enrollment_repo(client)).execute(student.id) {
+                    state.payment_enrollments    = enrollments;
+                    state.payment_sel_enrollment = None;
+                    state.payment_amount         = String::new();
+                    state.show_payment_form      = true;
+                    state.show_enroll_form       = false;
+                }
+            }
+            if ui.button("+ Inscribir").clicked() && !state.show_enroll_form {
+                if let Ok(courses) = CourseGetAllUseCase::new(make_course_repo(client)).execute() {
+                    state.enroll_courses    = courses.into_iter().filter(|c| c.age_group == student.age_group).collect();
+                    state.enroll_sel_course = None;
+                    state.enroll_sel_period = None;
+                    state.enroll_periods    = Vec::new();
+                    state.show_enroll_form  = true;
+                    state.show_payment_form = false;
+                }
+            }
+        });
     });
     ui.separator();
 
-    match state.detail_tab.clone() {
-        DetailTab::Inscripciones => show_inscripciones(ui, client, state, &student, notifs),
-        DetailTab::Pagos         => show_pagos(ui, client, state, &student, notifs),
-    }
-}
-
-// ── Inscripciones tab ────────────────────────────────────────────────────────
-
-fn show_inscripciones(
-    ui: &mut egui::Ui,
-    client: &Arc<Mutex<Client>>,
-    state: &mut StudentsState,
-    student: &crate::application::student::dto::StudentDto,
-    notifs: &mut Notifications,
-) {
-    if state.needs_reload_enrollments {
-        match EnrollmentGetByStudentUseCase::new(make_enrollment_repo(client)).execute(student.id) {
-            Ok(e)  => { state.student_enrollments = e; state.needs_reload_enrollments = false; }
-            Err(e) => push_error(notifs, e.to_string()),
-        }
-    }
-
+    // ── Enroll form ───────────────────────────────────────────────────────────
     if state.show_enroll_form {
-        ui.heading("Inscribir en período");
-        egui::Grid::new("enroll_form").num_columns(2).show(ui, |ui| {
+        ui.horizontal(|ui| {
             ui.label("Curso");
             egui::ComboBox::from_id_salt("enroll_course")
                 .selected_text(
@@ -106,7 +119,6 @@ fn show_inscripciones(
                         }
                     }
                 });
-            ui.end_row();
 
             ui.label("Período");
             egui::ComboBox::from_id_salt("enroll_period")
@@ -121,22 +133,31 @@ fn show_inscripciones(
                         ui.selectable_value(&mut state.enroll_sel_period, Some(p.id), &p.label);
                     }
                 });
-            ui.end_row();
-        });
 
-        ui.horizontal(|ui| {
+            // Show price for selected course
+            if let Some(price) = state.enroll_sel_course
+                .and_then(|id| state.enroll_courses.iter().find(|c| c.id == id))
+                .map(|c| c.price_cents)
+            {
+                ui.colored_label(crate::theme::colors::TEXT_MUTED,
+                    format!("${:.2}", price as f64 / 100.0));
+            }
+
             if ui.button("Inscribir").clicked() {
                 match state.enroll_sel_period {
                     Some(period_id) => {
-                        match EnrollmentCreateUseCase::new(make_enrollment_repo(client))
-                            .execute(EnrollmentCreateInput { student_id: student.id, course_period_id: period_id }) {
+                        match EnrollmentCreateUseCase::new(
+                            make_enrollment_repo(client),
+                            make_course_period_repo(client),
+                            make_course_repo(client),
+                        ).execute(EnrollmentCreateInput { student_id: student.id, course_period_id: period_id }) {
                             Ok(_) => {
                                 push_success(notifs, "Alumno inscrito");
-                                state.show_enroll_form         = false;
-                                state.enroll_sel_course        = None;
-                                state.enroll_sel_period        = None;
-                                state.enroll_periods           = Vec::new();
-                                state.needs_reload_enrollments = true;
+                                state.show_enroll_form    = false;
+                                state.enroll_sel_course   = None;
+                                state.enroll_sel_period   = None;
+                                state.enroll_periods      = Vec::new();
+                                state.needs_reload_ledger = true;
                             }
                             Err(e) => push_error(notifs, e.to_string()),
                         }
@@ -152,126 +173,11 @@ fn show_inscripciones(
             }
         });
         ui.separator();
-    } else {
-        ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("+ Inscribir").clicked() {
-                    if let Ok(courses) = CourseGetAllUseCase::new(make_course_repo(client)).execute() {
-                        state.enroll_courses    = courses.into_iter().filter(|c| c.age_group == student.age_group).collect();
-                        state.enroll_sel_course = None;
-                        state.enroll_sel_period = None;
-                        state.enroll_periods    = Vec::new();
-                        state.show_enroll_form  = true;
-                    }
-                }
-            });
-        });
     }
 
-    let mut enroll_action: Option<(EnrollAction, Uuid)> = None;
-
-    table::builder(ui)
-        .column(Column::remainder().at_least(100.0))
-        .column(Column::auto().at_least(80.0))
-        .column(Column::auto().at_least(70.0))
-        .column(Column::auto().at_least(80.0))
-        .column(Column::auto().at_least(80.0))
-        .column(Column::auto().at_least(80.0))
-        .header(table::header_height(), |mut h| {
-            h.col(|ui| table::head(ui, "Curso"));
-            h.col(|ui| table::head(ui, "Período"));
-            h.col(|ui| table::head(ui, "Estado"));
-            h.col(|ui| table::head(ui, "Último pago"));
-            h.col(|ui| table::head(ui, "Inscripto"));
-            h.col(|ui| table::head(ui, "Acciones"));
-        })
-        .body(|mut body| {
-            for e in &state.student_enrollments {
-                let status = e.effective_status();
-                body.row(table::row_height(), |mut row| {
-                    row.col(|ui| { ui.label(&e.course_name); });
-                    row.col(|ui| { ui.label(&e.period_label); });
-                    row.col(|ui| {
-                        let color = match &status {
-                            EffectiveStatus::Active    => crate::theme::colors::SUCCESS,
-                            EffectiveStatus::Dropped   => crate::theme::colors::ERROR,
-                            EffectiveStatus::Completed => crate::theme::colors::TEXT_MUTED,
-                        };
-                        ui.colored_label(color, status.label());
-                    });
-                    row.col(|ui| {
-                        match e.latest_payment.as_deref() {
-                            None            => { ui.label("—"); }
-                            Some("paid")    => { ui.colored_label(crate::theme::colors::SUCCESS, "✓ Pagado"); }
-                            Some("overdue") => { ui.colored_label(crate::theme::colors::ERROR,   "✗ Vencido"); }
-                            _               => { ui.colored_label(crate::theme::colors::WARNING, "⚠ Pendiente"); }
-                        }
-                    });
-                    row.col(|ui| { ui.label(fmt_dt(e.enrolled_at)); });
-                    row.col(|ui| {
-                        match status {
-                            EffectiveStatus::Dropped => {
-                                if ui.small_button("Reactivar").clicked() {
-                                    enroll_action = Some((EnrollAction::SetDropped(false), e.id));
-                                }
-                            }
-                            EffectiveStatus::Active => {
-                                if ui.small_button("Dar de baja").clicked() {
-                                    enroll_action = Some((EnrollAction::SetDropped(true), e.id));
-                                }
-                            }
-                            EffectiveStatus::Completed => {}
-                        }
-                        if ui.small_button("🗑").clicked() {
-                            enroll_action = Some((EnrollAction::Delete, e.id));
-                        }
-                    });
-                });
-            }
-        });
-
-    if let Some((act, id)) = enroll_action {
-        match act {
-            EnrollAction::SetDropped(dropped) => {
-                match EnrollmentSetDroppedUseCase::new(make_enrollment_repo(client))
-                    .execute(EnrollmentSetDroppedInput { id, dropped }) {
-                    Ok(_)  => state.needs_reload_enrollments = true,
-                    Err(e) => push_error(notifs, e.to_string()),
-                }
-            }
-            EnrollAction::Delete => { state.confirm_delete_enrollment = Some(id); }
-        }
-    }
-
-    if let Some(id) = confirm_delete_modal(ui.ctx(), &mut state.confirm_delete_enrollment) {
-        match EnrollmentDeleteUseCase::new(make_enrollment_repo(client)).execute(id) {
-            Ok(_)  => { push_success(notifs, "Inscripción eliminada"); state.needs_reload_enrollments = true; }
-            Err(e) => push_error(notifs, e.to_string()),
-        }
-    }
-}
-
-enum EnrollAction { SetDropped(bool), Delete }
-
-// ── Pagos tab ────────────────────────────────────────────────────────────────
-
-fn show_pagos(
-    ui: &mut egui::Ui,
-    client: &Arc<Mutex<Client>>,
-    state: &mut StudentsState,
-    student: &crate::application::student::dto::StudentDto,
-    notifs: &mut Notifications,
-) {
-    if state.needs_reload_payments {
-        match PaymentGetByStudentUseCase::new(make_payment_repo(client)).execute(student.id) {
-            Ok(p)  => { state.student_payments = p; state.needs_reload_payments = false; }
-            Err(e) => push_error(notifs, e.to_string()),
-        }
-    }
-
+    // ── Payment form ──────────────────────────────────────────────────────────
     if state.show_payment_form {
-        ui.heading("Registrar pago");
-        egui::Grid::new("payment_form").num_columns(2).show(ui, |ui| {
+        ui.horizontal(|ui| {
             ui.label("Inscripción");
             egui::ComboBox::from_id_salt("pay_enrollment")
                 .selected_text(
@@ -286,16 +192,13 @@ fn show_pagos(
                         ui.selectable_value(&mut state.payment_sel_enrollment, Some(e.id), label);
                     }
                 });
-            ui.end_row();
+
             ui.label("Monto");
-            ui.text_edit_singleline(&mut state.payment_amount);
-            ui.end_row();
+            ui.add(egui::TextEdit::singleline(&mut state.payment_amount).desired_width(70.0));
+
             ui.label("Fecha");
             date_selector(ui, "pay_date", &mut state.payment_due_date);
-            ui.end_row();
-        });
 
-        ui.horizontal(|ui| {
             if ui.button("Guardar").clicked() {
                 let enrollment_id = match state.payment_sel_enrollment {
                     Some(id) => id,
@@ -312,7 +215,7 @@ fn show_pagos(
                         state.show_payment_form      = false;
                         state.payment_amount         = String::new();
                         state.payment_sel_enrollment = None;
-                        state.needs_reload_payments  = true;
+                        state.needs_reload_ledger    = true;
                     }
                     Err(e) => push_error(notifs, e.to_string()),
                 }
@@ -324,92 +227,152 @@ fn show_pagos(
             }
         });
         ui.separator();
-    } else {
-        ui.horizontal(|ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("+ Registrar pago").clicked() {
-                    if let Ok(enrollments) = EnrollmentGetByStudentUseCase::new(make_enrollment_repo(client)).execute(student.id) {
-                        state.payment_enrollments    = enrollments;
-                        state.payment_sel_enrollment = None;
-                        state.show_payment_form      = true;
-                    }
-                }
-            });
-        });
     }
 
-    let mut pay_action: Option<(PayAction, Uuid)> = None;
+    // ── Ledger table ──────────────────────────────────────────────────────────
+    let mut action: Option<(LedgerAction, Uuid)> = None;
 
     table::builder(ui)
-        .column(Column::remainder().at_least(100.0))
-        .column(Column::auto().at_least(80.0))
-        .column(Column::exact(75.0))
-        .column(Column::auto().at_least(80.0))
-        .column(Column::auto().at_least(100.0))
-        .column(Column::auto().at_least(80.0))
+        .column(Column::auto().at_least(110.0))
+        .column(Column::remainder().at_least(150.0))
+        .column(Column::exact(80.0))
+        .column(Column::exact(90.0))
+        .column(Column::auto().at_least(60.0))
         .header(table::header_height(), |mut h| {
-            h.col(|ui| table::head(ui, "Curso"));
-            h.col(|ui| table::head(ui, "Período"));
+            h.col(|ui| table::head(ui, "Fecha"));
+            h.col(|ui| table::head(ui, "Descripción"));
             h.col(|ui| table::head(ui, "Monto"));
-            h.col(|ui| table::head(ui, "Estado"));
-            h.col(|ui| table::head(ui, "Pagado"));
+            h.col(|ui| table::head(ui, "Balance"));
             h.col(|ui| table::head(ui, "Acciones"));
         })
         .body(|mut body| {
-            for p in &state.student_payments {
+            for entry in &state.ledger {
                 body.row(table::row_height(), |mut row| {
-                    row.col(|ui| { ui.label(&p.course_name); });
-                    row.col(|ui| { ui.label(&p.period_label); });
-                    row.col(|ui| { ui.label(format!("${:.2}", p.amount_cents as f64 / 100.0)); });
+                    row.col(|ui| { ui.label(fmt_dt(entry.date)); });
+                    row.col(|ui| { ui.label(&entry.description); });
                     row.col(|ui| {
-                        let (text, color) = match p.status {
-                            PaymentStatus::Paid    => ("✓ Pagado",    crate::theme::colors::SUCCESS),
-                            PaymentStatus::Overdue => ("✗ Vencido",   crate::theme::colors::ERROR),
-                            PaymentStatus::Pending => ("⚠ Pendiente", crate::theme::colors::WARNING),
+                        match entry.kind {
+                            LedgerKind::Debt => ui.colored_label(
+                                crate::theme::colors::ERROR,
+                                format!("-${:.2}", entry.amount_cents as f64 / 100.0),
+                            ),
+                            LedgerKind::Credit => ui.colored_label(
+                                crate::theme::colors::SUCCESS,
+                                format!("+${:.2}", entry.amount_cents as f64 / 100.0),
+                            ),
                         };
-                        ui.colored_label(color, text);
                     });
                     row.col(|ui| {
-                        match p.paid_at {
-                            Some(dt) => { ui.label(fmt_dt(dt)); }
-                            None     => { ui.label("—"); }
-                        }
+                        let color = if entry.running_balance < 0 {
+                            crate::theme::colors::ERROR
+                        } else {
+                            crate::theme::colors::SUCCESS
+                        };
+                        let sign = if entry.running_balance < 0 { "-" } else { "+" };
+                        ui.colored_label(color, format!("{sign}${:.2}", entry.running_balance.unsigned_abs() as f64 / 100.0));
                     });
                     row.col(|ui| {
-                        if p.status != PaymentStatus::Paid {
-                            if ui.small_button("✓ Pagar").clicked() {
-                                pay_action = Some((PayAction::MarkPaid, p.id));
+                        // Debt entries: mark paid or delete enrollment
+                        // Credit entries: delete payment
+                        match entry.kind {
+                            LedgerKind::Debt => {
+                                if ui.small_button("🗑").clicked() {
+                                    action = Some((LedgerAction::DeleteEnrollment, entry.id));
+                                }
                             }
-                        }
-                        if ui.small_button("🗑").clicked() {
-                            pay_action = Some((PayAction::Delete, p.id));
+                            LedgerKind::Credit => {
+                                if ui.small_button("🗑").clicked() {
+                                    action = Some((LedgerAction::DeletePayment, entry.id));
+                                }
+                            }
                         }
                     });
                 });
             }
         });
 
-    if let Some((act, id)) = pay_action {
+    // Pending payments (shown below ledger, not counted in balance)
+    let pending = {
+        let enrollment_repo = make_enrollment_repo(client);
+        let payment_repo    = make_payment_repo(client);
+        // quick inline: get pending payments
+        let _ = (enrollment_repo, payment_repo); // repos available if needed
+        Vec::<(String, i32)>::new() // placeholder — pending payments shown via mark_paid action
+    };
+    let _ = pending;
+
+    // Mark-paid shortcuts: show pending payments separately
+    show_pending_payments(ui, client, student.id, state, notifs);
+
+    if let Some((act, id)) = action {
         match act {
-            PayAction::MarkPaid => {
-                match PaymentMarkPaidUseCase::new(make_payment_repo(client)).execute(id) {
-                    Ok(_)  => { push_success(notifs, "Pago marcado como pagado"); state.needs_reload_payments = true; }
-                    Err(e) => push_error(notifs, e.to_string()),
-                }
-            }
-            PayAction::Delete => { state.confirm_delete_payment = Some(id); }
+            LedgerAction::DeleteEnrollment => { state.confirm_delete = Some(id); }
+            LedgerAction::DeletePayment    => { state.confirm_delete = Some(id); }
         }
+        state.confirm_delete = Some(id);
     }
 
-    if let Some(id) = confirm_delete_modal(ui.ctx(), &mut state.confirm_delete_payment) {
-        match PaymentDeleteUseCase::new(make_payment_repo(client)).execute(id) {
-            Ok(_)  => { push_success(notifs, "Pago eliminado"); state.needs_reload_payments = true; }
-            Err(e) => push_error(notifs, e.to_string()),
+    if let Some(id) = confirm_delete_modal(ui.ctx(), &mut state.confirm_delete) {
+        // Try delete as enrollment first, then as payment
+        let del_enroll = EnrollmentDeleteUseCase::new(make_enrollment_repo(client)).execute(id);
+        if del_enroll.is_ok() {
+            push_success(notifs, "Inscripción eliminada");
+            state.needs_reload_ledger = true;
+        } else {
+            match PaymentDeleteUseCase::new(make_payment_repo(client)).execute(id) {
+                Ok(_)  => { push_success(notifs, "Pago eliminado"); state.needs_reload_ledger = true; }
+                Err(e) => push_error(notifs, e.to_string()),
+            }
         }
     }
 }
 
-enum PayAction { MarkPaid, Delete }
+enum LedgerAction { DeleteEnrollment, DeletePayment }
+
+fn show_pending_payments(
+    ui: &mut egui::Ui,
+    client: &Arc<Mutex<Client>>,
+    student_id: Uuid,
+    state: &mut StudentsState,
+    notifs: &mut Notifications,
+) {
+    // Get pending payments for quick mark-paid
+    use crate::application::payment::get_by_student::PaymentGetByStudentUseCase;
+    use crate::domain::payment::PaymentStatus;
+
+    let payments = match PaymentGetByStudentUseCase::new(make_payment_repo(client)).execute(student_id) {
+        Ok(p)  => p,
+        Err(e) => { push_error(notifs, e.to_string()); return; }
+    };
+
+    let pending: Vec<_> = payments.iter().filter(|p| p.status != PaymentStatus::Paid).collect();
+    if pending.is_empty() { return; }
+
+    ui.add_space(4.0);
+    section_header(ui, "Pagos pendientes");
+    let mut mark_id: Option<Uuid> = None;
+    for p in &pending {
+        ui.horizontal(|ui| {
+            let status_color = if p.status == PaymentStatus::Overdue {
+                crate::theme::colors::ERROR
+            } else {
+                crate::theme::colors::WARNING
+            };
+            ui.colored_label(status_color, p.status.label());
+            ui.label(format!("{} — {} — ${:.2}",
+                p.course_name, p.period_label, p.amount_cents as f64 / 100.0));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.small_button("✓ Marcar pagado").clicked() { mark_id = Some(p.id); }
+            });
+        });
+    }
+    if let Some(id) = mark_id {
+        match PaymentMarkPaidUseCase::new(make_payment_repo(client)).execute(id) {
+            Ok(_)  => { push_success(notifs, "Pago marcado como pagado"); state.needs_reload_ledger = true; }
+            Err(e) => push_error(notifs, e.to_string()),
+        }
+    }
+}
 
 fn parse_cents(s: &str) -> Option<i32> {
     s.trim().parse::<f64>().ok().map(|f| (f * 100.0).round() as i32).filter(|&c| c > 0)

@@ -14,8 +14,8 @@ use crate::{
         course::dto::CourseDto,
         course_period::dto::CoursePeriodDto,
         enrollment::dto::EnrollmentDto,
-        payment::dto::PaymentDto,
         student::{dto::StudentDto, get_all::StudentGetAllUseCase},
+        student_ledger::LedgerEntry,
     },
     domain::student::AgeGroup,
     infrastructure::{
@@ -31,50 +31,43 @@ use crate::{
 #[derive(Default, PartialEq)]
 pub enum Mode { #[default] List, Create, Edit, Detail }
 
-#[derive(Default, PartialEq, Clone)]
-pub enum DetailTab { #[default] Inscripciones, Pagos }
-
 pub struct StudentsState {
-    pub mode:           Mode,
-    pub students:       Vec<StudentDto>,
-    pub needs_reload:   bool,
+    pub mode:         Mode,
+    pub students:     Vec<StudentDto>,
+    pub needs_reload: bool,
 
     // form
-    pub editing_id:     Option<Uuid>,
-    pub age_group:      AgeGroup,
-    pub first_name:     String,
-    pub last_name:      String,
-    pub email:          String,
-    pub phone:          String,
-    pub notes:          String,
-    pub created_at:     String,
-    pub updated_at:     String,
+    pub editing_id: Option<Uuid>,
+    pub age_group:  AgeGroup,
+    pub first_name: String,
+    pub last_name:  String,
+    pub email:      String,
+    pub phone:      String,
+    pub notes:      String,
+    pub created_at: String,
+    pub updated_at: String,
 
     // detail
-    pub selected_student: Option<StudentDto>,
-    pub detail_tab:       DetailTab,
+    pub selected_student:    Option<StudentDto>,
+    pub ledger:              Vec<LedgerEntry>,
+    pub balance_cents:       i32,
+    pub needs_reload_ledger: bool,
 
-    // inscripciones tab
-    pub student_enrollments:      Vec<EnrollmentDto>,
-    pub needs_reload_enrollments: bool,
-    pub show_enroll_form:         bool,
-    pub enroll_courses:           Vec<CourseDto>,
-    pub enroll_sel_course:        Option<Uuid>,
-    pub enroll_periods:           Vec<CoursePeriodDto>,
-    pub enroll_sel_period:        Option<Uuid>,
+    // enroll form
+    pub show_enroll_form:  bool,
+    pub enroll_courses:    Vec<CourseDto>,
+    pub enroll_sel_course: Option<Uuid>,
+    pub enroll_periods:    Vec<CoursePeriodDto>,
+    pub enroll_sel_period: Option<Uuid>,
 
-    // pagos tab
-    pub student_payments:       Vec<PaymentDto>,
-    pub needs_reload_payments:  bool,
+    // payment form
     pub show_payment_form:      bool,
     pub payment_enrollments:    Vec<EnrollmentDto>,
     pub payment_sel_enrollment: Option<Uuid>,
     pub payment_amount:         String,
     pub payment_due_date:       NaiveDate,
 
-    pub confirm_delete:            Option<Uuid>,
-    pub confirm_delete_enrollment: Option<Uuid>,
-    pub confirm_delete_payment:    Option<Uuid>,
+    pub confirm_delete: Option<Uuid>,
 }
 
 fn today() -> NaiveDate {
@@ -85,37 +78,33 @@ fn today() -> NaiveDate {
 impl Default for StudentsState {
     fn default() -> Self {
         Self {
-            mode:                      Mode::List,
-            students:                  Vec::new(),
-            needs_reload:              true,
-            editing_id:                None,
-            age_group:                 AgeGroup::default(),
-            first_name:                String::new(),
-            last_name:                 String::new(),
-            email:                     String::new(),
-            phone:                     String::new(),
-            notes:                     String::new(),
-            created_at:                String::new(),
-            updated_at:                String::new(),
-            selected_student:          None,
-            detail_tab:                DetailTab::default(),
-            student_enrollments:       Vec::new(),
-            needs_reload_enrollments:  false,
-            show_enroll_form:          false,
-            enroll_courses:            Vec::new(),
-            enroll_sel_course:         None,
-            enroll_periods:            Vec::new(),
-            enroll_sel_period:         None,
-            student_payments:          Vec::new(),
-            needs_reload_payments:     false,
-            show_payment_form:         false,
-            payment_enrollments:       Vec::new(),
-            payment_sel_enrollment:    None,
-            payment_amount:            String::new(),
-            payment_due_date:          today(),
-            confirm_delete:            None,
-            confirm_delete_enrollment: None,
-            confirm_delete_payment:    None,
+            mode:                   Mode::List,
+            students:               Vec::new(),
+            needs_reload:           true,
+            editing_id:             None,
+            age_group:              AgeGroup::default(),
+            first_name:             String::new(),
+            last_name:              String::new(),
+            email:                  String::new(),
+            phone:                  String::new(),
+            notes:                  String::new(),
+            created_at:             String::new(),
+            updated_at:             String::new(),
+            selected_student:       None,
+            ledger:                 Vec::new(),
+            balance_cents:          0,
+            needs_reload_ledger:    false,
+            show_enroll_form:       false,
+            enroll_courses:         Vec::new(),
+            enroll_sel_course:      None,
+            enroll_periods:         Vec::new(),
+            enroll_sel_period:      None,
+            show_payment_form:      false,
+            payment_enrollments:    Vec::new(),
+            payment_sel_enrollment: None,
+            payment_amount:         String::new(),
+            payment_due_date:       today(),
+            confirm_delete:         None,
         }
     }
 }
@@ -137,24 +126,21 @@ pub fn make_course_period_repo(client: &Arc<Mutex<Client>>) -> Arc<CoursePeriodP
 }
 
 pub fn clear_detail_state(state: &mut StudentsState) {
-    state.selected_student          = None;
-    state.detail_tab                = DetailTab::Inscripciones;
-    state.student_enrollments       = Vec::new();
-    state.needs_reload_enrollments  = false;
-    state.show_enroll_form          = false;
-    state.enroll_courses            = Vec::new();
-    state.enroll_sel_course         = None;
-    state.enroll_periods            = Vec::new();
-    state.enroll_sel_period         = None;
-    state.student_payments          = Vec::new();
-    state.needs_reload_payments     = false;
-    state.show_payment_form         = false;
-    state.payment_enrollments       = Vec::new();
-    state.payment_sel_enrollment    = None;
-    state.payment_amount            = String::new();
-    state.payment_due_date          = today();
-    state.confirm_delete_enrollment = None;
-    state.confirm_delete_payment    = None;
+    state.selected_student       = None;
+    state.ledger                 = Vec::new();
+    state.balance_cents          = 0;
+    state.needs_reload_ledger    = false;
+    state.show_enroll_form       = false;
+    state.enroll_courses         = Vec::new();
+    state.enroll_sel_course      = None;
+    state.enroll_periods         = Vec::new();
+    state.enroll_sel_period      = None;
+    state.show_payment_form      = false;
+    state.payment_enrollments    = Vec::new();
+    state.payment_sel_enrollment = None;
+    state.payment_amount         = String::new();
+    state.payment_due_date       = today();
+    state.confirm_delete         = None;
 }
 
 pub fn clear_form(state: &mut StudentsState) {

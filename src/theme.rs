@@ -76,10 +76,10 @@ pub fn apply(ctx: &egui::Context) {
     let mut style = (*ctx.global_style()).clone();
 
     style.text_styles = [
-        (TextStyle::Heading,   FontId::new(sizes::FONT_HEADING, FontFamily::Monospace)),
-        (TextStyle::Body,      FontId::new(sizes::FONT_BODY,    FontFamily::Monospace)),
-        (TextStyle::Button,    FontId::new(sizes::FONT_BUTTON,  FontFamily::Monospace)),
-        (TextStyle::Small,     FontId::new(sizes::FONT_SMALL,   FontFamily::Monospace)),
+        (TextStyle::Heading,   FontId::new(sizes::FONT_HEADING, FontFamily::Proportional)),
+        (TextStyle::Body,      FontId::new(sizes::FONT_BODY,    FontFamily::Proportional)),
+        (TextStyle::Button,    FontId::new(sizes::FONT_BUTTON,  FontFamily::Proportional)),
+        (TextStyle::Small,     FontId::new(sizes::FONT_SMALL,   FontFamily::Proportional)),
         (TextStyle::Monospace, FontId::new(sizes::FONT_BODY,    FontFamily::Monospace)),
     ]
     .into();
