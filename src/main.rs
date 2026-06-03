@@ -75,7 +75,7 @@ fn main() {
     log::info!("starting babushka");
 
     let status = Arc::new(Mutex::new(LoadingStatus {
-        message:  "Initializing…".into(),
+        message:  "Iniciando…".into(),
         progress: 0.0,
         result:   None,
     }));
@@ -96,27 +96,27 @@ fn main() {
             Err(e) => { fail(e.to_string()); return; }
         };
 
-        set("Setting up database…", 0.1);
+        set("Configurando base de datos…", 0.1);
         let mut pg = PostgreSQL::default();
         if let Err(e) = rt.block_on(pg.setup()) { fail(e.to_string()); return; }
 
-        set("Starting database…", 0.3);
+        set("Arrancando base de datos…", 0.3);
         if let Err(e) = rt.block_on(pg.start()) { fail(e.to_string()); return; }
 
-        set("Preparing database…", 0.55);
+        set("Preparando base de datos…", 0.55);
         if !rt.block_on(pg.database_exists("babushka")).unwrap_or(false) {
             if let Err(e) = rt.block_on(pg.create_database("babushka")) { fail(e.to_string()); return; }
         }
 
         let url = pg.settings().url("babushka");
 
-        set("Connecting…", 0.7);
+        set("Conectando…", 0.7);
         let mut client = match postgres::Client::connect(&url, postgres::NoTls) {
             Ok(c)  => c,
             Err(e) => { fail(e.to_string()); return; }
         };
 
-        set("Running migrations…", 0.85);
+        set("Aplicando migraciones…", 0.85);
         if let Err(e) = run_migrations(&mut client) { fail(e); return; }
 
         let mut s  = status_bg.lock().unwrap();
