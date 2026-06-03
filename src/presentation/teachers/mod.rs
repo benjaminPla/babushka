@@ -67,8 +67,9 @@ pub fn clear_form(state: &mut TeachersState) {
 
 pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut TeachersState, notifs: &mut Notifications) {
     if state.needs_reload {
+        state.needs_reload = false;
         match TeacherGetAllUseCase::new(make_repo(client)).execute() {
-            Ok(teachers) => { state.teachers = teachers; state.needs_reload = false; }
+            Ok(teachers) => { state.teachers = teachers; }
             Err(e)       => push_error(notifs, e.to_string()),
         }
     }

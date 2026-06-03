@@ -13,6 +13,7 @@ use crate::{
     application::{
         course::dto::CourseDto,
         course_period::dto::CoursePeriodDto,
+        payment::dto::PaymentDto,
         student::{dto::StudentDto, get_all::StudentGetAllUseCase},
         student_ledger::LedgerEntry,
     },
@@ -49,6 +50,7 @@ pub struct StudentsState {
     // detail
     pub selected_student:    Option<StudentDto>,
     pub ledger:              Vec<LedgerEntry>,
+    pub pending_payments:    Vec<PaymentDto>,
     pub balance_cents:       i32,
     pub needs_reload_ledger: bool,
 
@@ -89,6 +91,7 @@ impl Default for StudentsState {
             updated_at:             String::new(),
             selected_student:       None,
             ledger:                 Vec::new(),
+            pending_payments:       Vec::new(),
             balance_cents:          0,
             needs_reload_ledger:    false,
             show_enroll_form:       false,
@@ -121,10 +124,11 @@ pub fn make_course_period_repo(client: &Arc<Mutex<Client>>) -> Arc<CoursePeriodP
 }
 
 pub fn clear_detail_state(state: &mut StudentsState) {
-    state.selected_student       = None;
-    state.ledger                 = Vec::new();
-    state.balance_cents          = 0;
-    state.needs_reload_ledger    = false;
+    state.selected_student    = None;
+    state.ledger              = Vec::new();
+    state.pending_payments    = Vec::new();
+    state.balance_cents       = 0;
+    state.needs_reload_ledger = false;
     state.show_enroll_form       = false;
     state.enroll_courses         = Vec::new();
     state.enroll_sel_course      = None;
@@ -150,8 +154,9 @@ pub fn clear_form(state: &mut StudentsState) {
 
 pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut StudentsState, notifs: &mut Notifications) {
     if state.needs_reload {
+        state.needs_reload = false;
         match StudentGetAllUseCase::new(make_repo(client)).execute() {
-            Ok(students) => { state.students = students; state.needs_reload = false; }
+            Ok(students) => { state.students = students; }
             Err(e)       => push_error(notifs, e.to_string()),
         }
     }

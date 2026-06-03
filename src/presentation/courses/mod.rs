@@ -125,8 +125,9 @@ pub fn clear_course_form(state: &mut CoursesState) {
 
 pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesState, notifs: &mut Notifications) {
     if state.needs_reload {
+        state.needs_reload = false;
         match CourseGetAllUseCase::new(make_course_repo(client)).execute() {
-            Ok(courses) => { state.courses = courses; state.needs_reload = false; }
+            Ok(courses) => { state.courses = courses; }
             Err(e)      => push_error(notifs, e.to_string()),
         }
     }

@@ -16,6 +16,7 @@ use crate::{
         payment::{
             create::{PaymentCreateInput, PaymentCreateUseCase},
             delete::PaymentDeleteUseCase,
+            get_by_student::PaymentGetByStudentUseCase,
             mark_paid::PaymentMarkPaidUseCase,
         },
         student_ledger::{LedgerKind, StudentLedgerUseCase},
@@ -39,12 +40,20 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     };
 
     if state.needs_reload_ledger {
+        state.needs_reload_ledger = false;
         let ledger_uc = StudentLedgerUseCase::new(make_enrollment_repo(client), make_payment_repo(client));
         match ledger_uc.execute(student.id) {
             Ok((entries, balance)) => {
-                state.ledger              = entries;
-                state.balance_cents       = balance;
-                state.needs_reload_ledger = false;
+                state.ledger        = entries;
+                state.balance_cents = balance;
+            }
+            Err(e) => push_error(notifs, e.to_string()),
+        }
+        match PaymentGetByStudentUseCase::new(make_payment_repo(client)).execute(student.id) {
+            Ok(payments) => {
+                state.pending_payments = payments.into_iter()
+                    .filter(|p| p.status != crate::domain::payment::PaymentStatus::Paid)
+                    .collect();
             }
             Err(e) => push_error(notifs, e.to_string()),
         }
@@ -294,7 +303,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     let _ = pending;
 
     // Mark-paid shortcuts: show pending payments separately
-    show_pending_payments(ui, client, student.id, state, notifs);
+    show_pending_payments(ui, client, state, notifs);
 
     if let Some((act, id)) = action {
         match act {
@@ -324,26 +333,17 @@ enum LedgerAction { DeleteEnrollment, DeletePayment }
 fn show_pending_payments(
     ui: &mut egui::Ui,
     client: &Arc<Mutex<Client>>,
-    student_id: Uuid,
     state: &mut StudentsState,
     notifs: &mut Notifications,
 ) {
-    // Get pending payments for quick mark-paid
-    use crate::application::payment::get_by_student::PaymentGetByStudentUseCase;
     use crate::domain::payment::PaymentStatus;
 
-    let payments = match PaymentGetByStudentUseCase::new(make_payment_repo(client)).execute(student_id) {
-        Ok(p)  => p,
-        Err(e) => { push_error(notifs, e.to_string()); return; }
-    };
-
-    let pending: Vec<_> = payments.iter().filter(|p| p.status != PaymentStatus::Paid).collect();
-    if pending.is_empty() { return; }
+    if state.pending_payments.is_empty() { return; }
 
     ui.add_space(4.0);
     section_header(ui, "Pagos pendientes");
     let mut mark_id: Option<Uuid> = None;
-    for p in &pending {
+    for p in &state.pending_payments {
         ui.horizontal(|ui| {
             let status_color = if p.status == PaymentStatus::Overdue {
                 crate::theme::colors::ERROR

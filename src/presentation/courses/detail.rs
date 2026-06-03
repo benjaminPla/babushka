@@ -24,8 +24,9 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
     };
 
     if state.needs_reload_periods {
+        state.needs_reload_periods = false;
         match CoursePeriodGetByCourseUseCase::new(make_course_period_repo(client)).execute(course.id) {
-            Ok(periods) => { state.periods = periods; state.needs_reload_periods = false; }
+            Ok(periods) => { state.periods = periods; }
             Err(e)      => push_error(notifs, e.to_string()),
         }
     }

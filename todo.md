@@ -5,7 +5,7 @@
 - [x] curses periods add furute or not_started or something on future
 - [x] ux -> registry payment bad date format, default to now()
 - [x] fix notifications ui
-- [ ] add filters instead of selectors (ei: enrollements view students and courses) // CLAUDE: do not do this, if I ask you to go troght todo and do, this is for me to specifically tell you and not general
+- [ ] add filters + selectors (same input) (ei: enrollements view students and courses)
 - [x] add Cargo.toml version, if possible, to 1.0
 - [x] check discounts and partial payments strategy, idea: add payment + a discount row
 - [x] enrollements status need to be automatically completed on course now >= endtime
