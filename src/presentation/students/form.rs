@@ -70,7 +70,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                 notes,
                 phone:      state.phone.clone(),
             }),
-            Mode::List => unreachable!(),
+            _ => unreachable!(),
         };
 
         match result {

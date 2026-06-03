@@ -42,6 +42,7 @@ pub struct Payment {
     enrollment_id: Uuid,
     student_name:  String,
     course_name:   String,
+    period_label:  String,
     amount_cents:  i32,
     due_date:      NaiveDate,
     paid_at:       Option<DateTime<Utc>>,
@@ -64,6 +65,7 @@ impl Payment {
             enrollment_id,
             student_name:  String::new(),
             course_name:   String::new(),
+            period_label:  String::new(),
             amount_cents,
             due_date,
             paid_at:       None,
@@ -79,6 +81,7 @@ impl Payment {
         enrollment_id: Uuid,
         student_name:  String,
         course_name:   String,
+        period_label:  String,
         amount_cents:  i32,
         due_date:      NaiveDate,
         paid_at:       Option<DateTime<Utc>>,
@@ -87,13 +90,14 @@ impl Payment {
         created_at:    DateTime<Utc>,
         updated_at:    DateTime<Utc>,
     ) -> Self {
-        Self { id, enrollment_id, student_name, course_name, amount_cents, due_date, paid_at, status, notes, created_at, updated_at }
+        Self { id, enrollment_id, student_name, course_name, period_label, amount_cents, due_date, paid_at, status, notes, created_at, updated_at }
     }
 
     pub fn id(&self)            -> Uuid                  { self.id }
     pub fn enrollment_id(&self) -> Uuid                  { self.enrollment_id }
     pub fn student_name(&self)  -> &str                  { &self.student_name }
     pub fn course_name(&self)   -> &str                  { &self.course_name }
+    pub fn period_label(&self)  -> &str                  { &self.period_label }
     pub fn amount_cents(&self)  -> i32                   { self.amount_cents }
     pub fn due_date(&self)      -> NaiveDate             { self.due_date }
     pub fn paid_at(&self)       -> Option<DateTime<Utc>> { self.paid_at }

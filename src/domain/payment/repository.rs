@@ -7,6 +7,7 @@ pub trait PaymentRepo: Send + Sync {
     fn delete(&self, id: Uuid)                       -> Result<(), PaymentRepoError>;
     fn get_all(&self)                                -> Result<Vec<Payment>, PaymentRepoError>;
     fn get_by_enrollment(&self, enrollment_id: Uuid) -> Result<Vec<Payment>, PaymentRepoError>;
+    fn get_by_student(&self, student_id: Uuid)       -> Result<Vec<Payment>, PaymentRepoError>;
     fn mark_paid(&self, id: Uuid)                    -> Result<(), PaymentRepoError>;
 }
 

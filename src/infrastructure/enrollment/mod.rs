@@ -87,6 +87,14 @@ impl EnrollmentRepo for EnrollmentPgRepo {
         rows.iter().map(row_to_enrollment).collect()
     }
 
+    fn get_by_student(&self, student_id: Uuid) -> Result<Vec<Enrollment>, EnrollmentRepoError> {
+        let query = format!("{SELECT} WHERE e.student_id = $1 ORDER BY e.enrolled_at DESC");
+        let rows = self.client.lock().unwrap()
+            .query(&query, &[&student_id])
+            .map_err(pg_err)?;
+        rows.iter().map(row_to_enrollment).collect()
+    }
+
     fn get_by_id(&self, id: Uuid) -> Result<Enrollment, EnrollmentRepoError> {
         let query = format!("{SELECT} WHERE e.id = $1");
         let row = self.client.lock().unwrap()

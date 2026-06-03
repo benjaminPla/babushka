@@ -1,3 +1,4 @@
+mod detail;
 mod form;
 mod list;
 
@@ -8,19 +9,36 @@ use postgres::Client;
 use uuid::Uuid;
 
 use crate::{
-    application::student::{dto::StudentDto, get_all::StudentGetAllUseCase},
+    application::{
+        course::dto::CourseDto,
+        course_period::dto::CoursePeriodDto,
+        enrollment::dto::EnrollmentDto,
+        payment::dto::PaymentDto,
+        student::{dto::StudentDto, get_all::StudentGetAllUseCase},
+    },
     domain::student::AgeGroup,
-    infrastructure::student::StudentPgRepo,
+    infrastructure::{
+        course::CoursePgRepo,
+        course_period::CoursePeriodPgRepo,
+        enrollment::EnrollmentPgRepo,
+        payment::PaymentPgRepo,
+        student::StudentPgRepo,
+    },
     presentation::{push_error, Notifications},
 };
 
 #[derive(Default, PartialEq)]
-pub enum Mode { #[default] List, Create, Edit }
+pub enum Mode { #[default] List, Create, Edit, Detail }
+
+#[derive(Default, PartialEq, Clone)]
+pub enum DetailTab { #[default] Inscripciones, Pagos }
 
 pub struct StudentsState {
     pub mode:           Mode,
     pub students:       Vec<StudentDto>,
     pub needs_reload:   bool,
+
+    // form
     pub editing_id:     Option<Uuid>,
     pub age_group:      AgeGroup,
     pub first_name:     String,
@@ -30,31 +48,86 @@ pub struct StudentsState {
     pub notes:          String,
     pub created_at:     String,
     pub updated_at:     String,
-    pub confirm_delete: Option<Uuid>,
+
+    // detail
+    pub selected_student:       Option<StudentDto>,
+    pub detail_tab:             DetailTab,
+
+    // inscripciones tab
+    pub student_enrollments:        Vec<EnrollmentDto>,
+    pub needs_reload_enrollments:   bool,
+    pub show_enroll_form:           bool,
+    pub enroll_courses:             Vec<CourseDto>,
+    pub enroll_sel_course:          Option<Uuid>,
+    pub enroll_periods:             Vec<CoursePeriodDto>,
+    pub enroll_sel_period:          Option<Uuid>,
+
+    // pagos tab
+    pub student_payments:       Vec<PaymentDto>,
+    pub needs_reload_payments:  bool,
+    pub show_payment_form:      bool,
+    pub payment_enrollments:    Vec<EnrollmentDto>,
+    pub payment_sel_enrollment: Option<Uuid>,
+    pub payment_amount:         String,
+    pub payment_due_date:       String,
+
+    pub confirm_delete:            Option<Uuid>,
+    pub confirm_delete_enrollment: Option<Uuid>,
+    pub confirm_delete_payment:    Option<Uuid>,
 }
 
 impl Default for StudentsState {
     fn default() -> Self {
         Self {
-            mode:           Mode::List,
-            students:       Vec::new(),
-            needs_reload:   true,
-            editing_id:     None,
-            age_group:      AgeGroup::default(),
-            first_name:     String::new(),
-            last_name:      String::new(),
-            email:          String::new(),
-            phone:          String::new(),
-            notes:          String::new(),
-            created_at:     String::new(),
-            updated_at:     String::new(),
-            confirm_delete: None,
+            mode:                      Mode::List,
+            students:                  Vec::new(),
+            needs_reload:              true,
+            editing_id:                None,
+            age_group:                 AgeGroup::default(),
+            first_name:                String::new(),
+            last_name:                 String::new(),
+            email:                     String::new(),
+            phone:                     String::new(),
+            notes:                     String::new(),
+            created_at:                String::new(),
+            updated_at:                String::new(),
+            selected_student:          None,
+            detail_tab:                DetailTab::default(),
+            student_enrollments:       Vec::new(),
+            needs_reload_enrollments:  false,
+            show_enroll_form:          false,
+            enroll_courses:            Vec::new(),
+            enroll_sel_course:         None,
+            enroll_periods:            Vec::new(),
+            enroll_sel_period:         None,
+            student_payments:          Vec::new(),
+            needs_reload_payments:     false,
+            show_payment_form:         false,
+            payment_enrollments:       Vec::new(),
+            payment_sel_enrollment:    None,
+            payment_amount:            String::new(),
+            payment_due_date:          String::new(),
+            confirm_delete:            None,
+            confirm_delete_enrollment: None,
+            confirm_delete_payment:    None,
         }
     }
 }
 
 pub fn make_repo(client: &Arc<Mutex<Client>>) -> Arc<StudentPgRepo> {
     Arc::new(StudentPgRepo::new(Arc::clone(client)))
+}
+pub fn make_enrollment_repo(client: &Arc<Mutex<Client>>) -> Arc<EnrollmentPgRepo> {
+    Arc::new(EnrollmentPgRepo::new(Arc::clone(client)))
+}
+pub fn make_payment_repo(client: &Arc<Mutex<Client>>) -> Arc<PaymentPgRepo> {
+    Arc::new(PaymentPgRepo::new(Arc::clone(client)))
+}
+pub fn make_course_repo(client: &Arc<Mutex<Client>>) -> Arc<CoursePgRepo> {
+    Arc::new(CoursePgRepo::new(Arc::clone(client)))
+}
+pub fn make_course_period_repo(client: &Arc<Mutex<Client>>) -> Arc<CoursePeriodPgRepo> {
+    Arc::new(CoursePeriodPgRepo::new(Arc::clone(client)))
 }
 
 pub fn clear_form(state: &mut StudentsState) {
@@ -78,7 +151,8 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     }
 
     match state.mode {
-        Mode::List              => list::show(ui, client, state, notifs),
-        Mode::Create | Mode::Edit => form::show(ui, client, state, notifs),
+        Mode::List                  => list::show(ui, client, state, notifs),
+        Mode::Create | Mode::Edit   => form::show(ui, client, state, notifs),
+        Mode::Detail                => detail::show(ui, client, state, notifs),
     }
 }

@@ -10,7 +10,7 @@ use crate::presentation::table::{self, Column};
 
 use super::{Mode, StudentsState, clear_form, make_repo};
 
-enum Action { Edit, Delete }
+enum Action { Open, Edit, Delete }
 
 pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut StudentsState, notifs: &mut Notifications) {
     ui.horizontal(|ui| {
@@ -48,6 +48,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                     row.col(|ui| { ui.label(&s.phone); });
                     row.col(|ui| { ui.label(s.age_group.label()); });
                     row.col(|ui| {
+                        if ui.small_button("Ver").clicked()      { action = Some((Action::Open,   s.id)); }
                         if ui.small_button("Editar").clicked()   { action = Some((Action::Edit,   s.id)); }
                         if ui.small_button("Eliminar").clicked() { action = Some((Action::Delete, s.id)); }
                     });
@@ -57,6 +58,15 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
 
     if let Some((act, id)) = action {
         match act {
+            Action::Open => {
+                if let Some(s) = state.students.iter().find(|s| s.id == id) {
+                    state.selected_student          = Some(s.clone());
+                    state.detail_tab                = super::DetailTab::Inscripciones;
+                    state.needs_reload_enrollments  = true;
+                    state.needs_reload_payments     = true;
+                    state.mode                      = super::Mode::Detail;
+                }
+            }
             Action::Edit => {
                 if let Some(s) = state.students.iter().find(|s| s.id == id) {
                     state.age_group  = s.age_group.clone();

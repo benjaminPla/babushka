@@ -3,4 +3,5 @@ pub mod delete;
 pub mod dto;
 pub mod errors;
 pub mod get_all;
+pub mod get_by_student;
 pub mod set_dropped;
