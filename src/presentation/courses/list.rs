@@ -31,6 +31,12 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
 
     let mut action: Option<(Action, Uuid)> = None;
 
+    let f = state.list_filter.to_lowercase();
+    let visible: Vec<_> = state.courses.iter()
+        .filter(|c| f.is_empty() || c.name.to_lowercase().contains(&f))
+        .cloned()
+        .collect();
+
     table::builder(ui)
         .column(Column::remainder().at_least(120.0))
         .column(Column::auto().at_least(100.0))
@@ -40,7 +46,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
         .column(Column::exact(80.0))
         .column(Column::auto())
         .header(table::header_height(), |mut h| {
-            h.col(|ui| table::head(ui, "Nombre"));
+            h.col(|ui| table::head_filter(ui, "Nombre", &mut state.list_filter));
             h.col(|ui| table::head(ui, "Profesor"));
             h.col(|ui| table::head(ui, "Grupo"));
             h.col(|ui| table::head(ui, "Cap."));
@@ -49,7 +55,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
             h.col(|ui| table::head(ui, "Acciones"));
         })
         .body(|mut body| {
-            for c in &state.courses {
+            for c in &visible {
                 body.row(table::row_height(), |mut row| {
                     row.col(|ui| { ui.label(&c.name); });
                     row.col(|ui| { ui.label(&c.teacher_name); });

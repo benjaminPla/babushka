@@ -1,3 +1,5 @@
+- [ ] BUG: enrollments unique eveytime or almost always
+- [ ] alpabetically order teachers courses and students get_all views
 - [x] fix shitty notification, it's growing horixoanlly with a shitty slow aniation and the x (close) it's not visible, it must apear and disapear and thats all. if the ui is complex just size it on the main panel or shomething not complex. it must be a global vec one0
 - [x] "Guardar" and "cancelar" buttons on horixontal forms must be right positioned
 - [x] stutdent info not that compact, columns like and leableled (like courses)

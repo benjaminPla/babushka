@@ -105,12 +105,14 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
             }
             if ui.button("+ Inscribir").clicked() && !state.show_enroll_form {
                 if let Ok(courses) = CourseGetAllUseCase::new(make_course_repo(client)).execute() {
-                    state.enroll_courses    = courses.into_iter().filter(|c| c.age_group == student.age_group).collect();
-                    state.enroll_sel_course = None;
-                    state.enroll_sel_period = None;
-                    state.enroll_periods    = Vec::new();
-                    state.show_enroll_form  = true;
-                    state.show_payment_form = false;
+                    state.enroll_courses       = courses.into_iter().filter(|c| c.age_group == student.age_group).collect();
+                    state.enroll_sel_course    = None;
+                    state.enroll_course_filter = String::new();
+                    state.enroll_sel_period    = None;
+                    state.enroll_period_filter = String::new();
+                    state.enroll_periods       = Vec::new();
+                    state.show_enroll_form     = true;
+                    state.show_payment_form    = false;
                 }
             }
         });
@@ -129,11 +131,18 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                         .unwrap_or_else(|| "Seleccionar...".into()),
                 )
                 .show_ui(ui, |ui| {
-                    for c in &state.enroll_courses {
+                    ui.text_edit_singleline(&mut state.enroll_course_filter);
+                    let cf = state.enroll_course_filter.to_lowercase();
+                    let courses: Vec<_> = state.enroll_courses.iter()
+                        .filter(|c| cf.is_empty() || c.name.to_lowercase().contains(&cf))
+                        .cloned()
+                        .collect();
+                    for c in &courses {
                         if ui.selectable_value(&mut state.enroll_sel_course, Some(c.id), &c.name).clicked() {
                             if let Ok(ps) = CoursePeriodGetByCourseUseCase::new(make_course_period_repo(client)).execute(c.id) {
-                                state.enroll_periods    = ps;
-                                state.enroll_sel_period = None;
+                                state.enroll_periods       = ps;
+                                state.enroll_sel_period    = None;
+                                state.enroll_period_filter = String::new();
                             }
                         }
                     }
@@ -148,7 +157,13 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                         .unwrap_or_else(|| "Seleccionar...".into()),
                 )
                 .show_ui(ui, |ui| {
-                    for p in &state.enroll_periods {
+                    ui.text_edit_singleline(&mut state.enroll_period_filter);
+                    let pf = state.enroll_period_filter.to_lowercase();
+                    let periods: Vec<_> = state.enroll_periods.iter()
+                        .filter(|p| pf.is_empty() || p.label.to_lowercase().contains(&pf))
+                        .cloned()
+                        .collect();
+                    for p in &periods {
                         ui.selectable_value(&mut state.enroll_sel_period, Some(p.id), &p.label);
                     }
                 });
@@ -163,10 +178,12 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.button("Cancelar").clicked() {
-                    state.show_enroll_form  = false;
-                    state.enroll_sel_course = None;
-                    state.enroll_sel_period = None;
-                    state.enroll_periods    = Vec::new();
+                    state.show_enroll_form     = false;
+                    state.enroll_sel_course    = None;
+                    state.enroll_course_filter = String::new();
+                    state.enroll_sel_period    = None;
+                    state.enroll_period_filter = String::new();
+                    state.enroll_periods       = Vec::new();
                 }
                 if ui.button("Inscribir").clicked() {
                     match state.enroll_sel_period {
@@ -178,11 +195,13 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                             ).execute(EnrollmentCreateInput { student_id: student.id, course_period_id: period_id }) {
                                 Ok(_) => {
                                     push_success(notifs, "Alumno inscrito");
-                                    state.show_enroll_form    = false;
-                                    state.enroll_sel_course   = None;
-                                    state.enroll_sel_period   = None;
-                                    state.enroll_periods      = Vec::new();
-                                    state.needs_reload_ledger = true;
+                                    state.show_enroll_form     = false;
+                                    state.enroll_sel_course    = None;
+                                    state.enroll_course_filter = String::new();
+                                    state.enroll_sel_period    = None;
+                                    state.enroll_period_filter = String::new();
+                                    state.enroll_periods       = Vec::new();
+                                    state.needs_reload_ledger  = true;
                                 }
                                 Err(e) => push_error(notifs, e.to_string()),
                             }

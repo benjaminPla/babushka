@@ -35,6 +35,7 @@ pub struct StudentsState {
     pub mode:         Mode,
     pub students:     Vec<StudentDto>,
     pub needs_reload: bool,
+    pub list_filter:  String,
 
     // form
     pub editing_id: Option<Uuid>,
@@ -55,11 +56,13 @@ pub struct StudentsState {
     pub needs_reload_ledger: bool,
 
     // enroll form
-    pub show_enroll_form:  bool,
-    pub enroll_courses:    Vec<CourseDto>,
-    pub enroll_sel_course: Option<Uuid>,
-    pub enroll_periods:    Vec<CoursePeriodDto>,
-    pub enroll_sel_period: Option<Uuid>,
+    pub show_enroll_form:     bool,
+    pub enroll_courses:       Vec<CourseDto>,
+    pub enroll_sel_course:    Option<Uuid>,
+    pub enroll_course_filter: String,
+    pub enroll_periods:       Vec<CoursePeriodDto>,
+    pub enroll_sel_period:    Option<Uuid>,
+    pub enroll_period_filter: String,
 
     // payment form
     pub show_payment_form: bool,
@@ -80,6 +83,7 @@ impl Default for StudentsState {
             mode:                   Mode::List,
             students:               Vec::new(),
             needs_reload:           true,
+            list_filter:            String::new(),
             editing_id:             None,
             age_group:              AgeGroup::default(),
             first_name:             String::new(),
@@ -94,11 +98,13 @@ impl Default for StudentsState {
             pending_payments:       Vec::new(),
             balance_cents:          0,
             needs_reload_ledger:    false,
-            show_enroll_form:       false,
-            enroll_courses:         Vec::new(),
-            enroll_sel_course:      None,
-            enroll_periods:         Vec::new(),
-            enroll_sel_period:      None,
+            show_enroll_form:     false,
+            enroll_courses:       Vec::new(),
+            enroll_sel_course:    None,
+            enroll_course_filter: String::new(),
+            enroll_periods:       Vec::new(),
+            enroll_sel_period:    None,
+            enroll_period_filter: String::new(),
             show_payment_form: false,
             payment_amount:    String::new(),
             payment_due_date:  today(),
@@ -129,11 +135,13 @@ pub fn clear_detail_state(state: &mut StudentsState) {
     state.pending_payments    = Vec::new();
     state.balance_cents       = 0;
     state.needs_reload_ledger = false;
-    state.show_enroll_form       = false;
-    state.enroll_courses         = Vec::new();
-    state.enroll_sel_course      = None;
-    state.enroll_periods         = Vec::new();
-    state.enroll_sel_period      = None;
+    state.show_enroll_form     = false;
+    state.enroll_courses       = Vec::new();
+    state.enroll_sel_course    = None;
+    state.enroll_course_filter = String::new();
+    state.enroll_periods       = Vec::new();
+    state.enroll_sel_period    = None;
+    state.enroll_period_filter = String::new();
     state.show_payment_form = false;
     state.payment_amount    = String::new();
     state.payment_due_date  = today();

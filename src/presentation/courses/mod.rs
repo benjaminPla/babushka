@@ -34,6 +34,7 @@ pub struct CoursesState {
     // list
     pub courses:      Vec<CourseDto>,
     pub needs_reload: bool,
+    pub list_filter:  String,
 
     // course form
     pub editing_id:   Option<Uuid>,
@@ -71,6 +72,7 @@ impl Default for CoursesState {
             mode:                    Mode::List,
             courses:                 Vec::new(),
             needs_reload:            true,
+            list_filter:             String::new(),
             editing_id:              None,
             name:                    String::new(),
             teacher_id:              None,
