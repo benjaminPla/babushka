@@ -90,7 +90,7 @@ impl eframe::App for AppWrapper {
                 let available_height = ui.available_height();
                 ui.add_space(available_height / 3.0);
                 ui.vertical_centered(|ui| {
-                    ui.colored_label(egui::Color32::RED, format!("Failed to start: {e}"));
+                    ui.colored_label(egui::Color32::RED, format!("Error al iniciar: {e}"));
                 });
             }
         }
