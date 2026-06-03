@@ -104,7 +104,7 @@ pub fn make_teacher_repo(client: &Arc<Mutex<Client>>) -> Arc<TeacherPgRepo> {
     Arc::new(TeacherPgRepo::new(Arc::clone(client)))
 }
 
-pub fn format_price(cents: i32) -> String { format!("{:.2}", cents as f64 / 100.0) }
+pub fn format_price(cents: i32) -> String { crate::presentation::fmt_ars(cents) }
 
 pub fn parse_price(s: &str) -> Option<i32> {
     s.trim().parse::<f64>().ok().map(|f| (f * 100.0).round() as i32)

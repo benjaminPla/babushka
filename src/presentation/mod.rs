@@ -33,39 +33,42 @@ pub fn push_success(n: &mut Notifications, msg: impl Into<String>) {
 pub fn render_notifications(ui: &mut egui::Ui, notifs: &mut Notifications) {
     notifs.retain(|n| n.born.elapsed() < TIMEOUT);
     if notifs.is_empty() { return; }
-    ui.ctx().request_repaint_after(Duration::from_millis(250));
-    let panel_rect = ui.max_rect();
-    let width      = panel_rect.width();
+    ui.ctx().request_repaint_after(Duration::from_secs(1));
+
+    const W: f32 = 300.0;
     let mut remove_idx = None;
 
     egui::Area::new(egui::Id::new("notifications"))
-        .anchor(egui::Align2::LEFT_BOTTOM, [panel_rect.min.x, 0.0])
+        .anchor(egui::Align2::RIGHT_BOTTOM, [-8.0, -8.0])
         .order(egui::Order::Foreground)
         .interactable(true)
         .show(ui.ctx(), |ui| {
+            ui.set_min_width(W);
+            ui.set_max_width(W);
             for (i, notif) in notifs.iter().enumerate() {
-                let (bg, fg) = match notif.kind {
-                    NotificationKind::Error   => (crate::theme::colors::NOTIF_ERROR,   crate::theme::colors::BACKGROUND),
-                    NotificationKind::Success => (crate::theme::colors::NOTIF_SUCCESS, crate::theme::colors::BACKGROUND),
-                    NotificationKind::Warning => (crate::theme::colors::NOTIF_WARNING, crate::theme::colors::BACKGROUND),
+                let bg = match notif.kind {
+                    NotificationKind::Error   => crate::theme::colors::NOTIF_ERROR,
+                    NotificationKind::Success => crate::theme::colors::NOTIF_SUCCESS,
+                    NotificationKind::Warning => crate::theme::colors::NOTIF_WARNING,
                 };
                 egui::Frame::new()
                     .fill(bg)
-                    .inner_margin(egui::Margin::same(6))
+                    .inner_margin(egui::Margin::symmetric(8, 5))
                     .show(ui, |ui| {
+                        ui.set_min_width(W - 16.0);
                         ui.horizontal(|ui| {
-                            ui.set_min_width(width);
-                            ui.colored_label(fg, &notif.message);
-                            let gap = ui.available_width() - 20.0;
-                            if gap > 0.0 { ui.add_space(gap); }
-                            let btn = egui::Button::new(
-                                egui::RichText::new("×").color(fg).size(13.0)
-                            )
-                            .fill(egui::Color32::TRANSPARENT)
-                            .stroke(egui::Stroke::NONE);
-                            if ui.add(btn).clicked() { remove_idx = Some(i); }
+                            ui.colored_label(crate::theme::colors::WHITE, &notif.message);
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                let btn = egui::Button::new(
+                                    egui::RichText::new("×").color(crate::theme::colors::WHITE).size(14.0)
+                                )
+                                .fill(egui::Color32::TRANSPARENT)
+                                .stroke(egui::Stroke::NONE);
+                                if ui.add(btn).clicked() { remove_idx = Some(i); }
+                            });
                         });
                     });
+                ui.add_space(2.0);
             }
         });
 
@@ -78,6 +81,24 @@ fn art() -> FixedOffset {
 
 pub fn fmt_dt(dt: DateTime<Utc>) -> String {
     dt.with_timezone(&art()).format("%d/%m/%Y %H:%M").to_string()
+}
+
+pub fn fmt_ars(cents: i32) -> String {
+    let abs = cents.unsigned_abs();
+    let sign = if cents < 0 { "-" } else { "" };
+    let pesos = (abs / 100) as u64;
+    let centavos = abs % 100;
+    let pesos_str = {
+        let s = pesos.to_string();
+        let chars: Vec<char> = s.chars().collect();
+        let mut result = String::with_capacity(s.len() + s.len() / 3);
+        for (i, &c) in chars.iter().enumerate() {
+            if i > 0 && (chars.len() - i) % 3 == 0 { result.push('.'); }
+            result.push(c);
+        }
+        result
+    };
+    format!("{sign}${pesos_str},{centavos:02}")
 }
 
 /// Three-dropdown date selector (día / mes / año). No external dependency.

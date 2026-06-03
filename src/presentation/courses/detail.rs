@@ -74,27 +74,29 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                         ui.selectable_value(&mut state.period_month, (i + 1) as u32, *name);
                     }
                 });
-            if ui.button("Guardar").clicked() {
-                let y = state.period_year;
-                let m = state.period_month;
-                let label      = format!("{} {}", MONTHS[(m - 1) as usize], y);
-                let start_date = NaiveDate::from_ymd_opt(y, m, 1).unwrap();
-                let end_date   = if m == 12 {
-                    NaiveDate::from_ymd_opt(y + 1, 1, 1).unwrap() - Duration::days(1)
-                } else {
-                    NaiveDate::from_ymd_opt(y, m + 1, 1).unwrap() - Duration::days(1)
-                };
-                match CoursePeriodCreateUseCase::new(make_course_period_repo(client))
-                    .execute(CoursePeriodCreateInput { course_id: course.id, label, start_date, end_date }) {
-                    Ok(_) => {
-                        push_success(notifs, "Período creado");
-                        state.show_period_form     = false;
-                        state.needs_reload_periods = true;
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("Cancelar").clicked() { state.show_period_form = false; }
+                if ui.button("Guardar").clicked() {
+                    let y = state.period_year;
+                    let m = state.period_month;
+                    let label      = format!("{} {}", MONTHS[(m - 1) as usize], y);
+                    let start_date = NaiveDate::from_ymd_opt(y, m, 1).unwrap();
+                    let end_date   = if m == 12 {
+                        NaiveDate::from_ymd_opt(y + 1, 1, 1).unwrap() - Duration::days(1)
+                    } else {
+                        NaiveDate::from_ymd_opt(y, m + 1, 1).unwrap() - Duration::days(1)
+                    };
+                    match CoursePeriodCreateUseCase::new(make_course_period_repo(client))
+                        .execute(CoursePeriodCreateInput { course_id: course.id, label, start_date, end_date }) {
+                        Ok(_) => {
+                            push_success(notifs, "Período creado");
+                            state.show_period_form     = false;
+                            state.needs_reload_periods = true;
+                        }
+                        Err(e) => push_error(notifs, e.to_string()),
                     }
-                    Err(e) => push_error(notifs, e.to_string()),
                 }
-            }
-            if ui.button("Cancelar").clicked() { state.show_period_form = false; }
+            });
         });
         ui.separator();
     } else {
@@ -132,7 +134,10 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                     row.col(|ui| { ui.label(p.end_date.format("%d/%m/%Y").to_string()); });
                     row.col(|ui| { ui.label(p.enrolled.to_string()); });
                     row.col(|ui| {
-                        if p.is_active() {
+                        let today = chrono::Local::now().date_naive();
+                        if p.start_date > today {
+                            ui.colored_label(crate::theme::colors::WARNING, "Futuro");
+                        } else if p.end_date >= today {
                             ui.colored_label(crate::theme::colors::SUCCESS, "Activo");
                         } else {
                             ui.colored_label(crate::theme::colors::TEXT_MUTED, "Finalizado");

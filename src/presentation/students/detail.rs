@@ -5,6 +5,7 @@ use postgres::Client;
 use uuid::Uuid;
 
 use crate::{
+    presentation::fmt_ars,
     application::{
         course::get_all::CourseGetAllUseCase,
         course_period::get_by_course::CoursePeriodGetByCourseUseCase,
@@ -60,15 +61,30 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     // ── Información ───────────────────────────────────────────────────────────
     section_header(ui, "Información");
     ui.heading(format!("{} {}", student.first_name, student.last_name));
-    ui.label(format!("{} · {} · {}", student.age_group.label(), student.email, student.phone));
+    egui::Grid::new("student_detail_info").num_columns(2).spacing([16.0, 2.0]).show(ui, |ui| {
+        ui.label(egui::RichText::new("Grupo").color(crate::theme::colors::TEXT_MUTED));
+        ui.label(student.age_group.label());
+        ui.end_row();
+        ui.label(egui::RichText::new("Email").color(crate::theme::colors::TEXT_MUTED));
+        ui.label(&student.email);
+        ui.end_row();
+        ui.label(egui::RichText::new("Teléfono").color(crate::theme::colors::TEXT_MUTED));
+        ui.label(&student.phone);
+        ui.end_row();
+        if let Some(n) = &student.notes {
+            ui.label(egui::RichText::new("Notas").color(crate::theme::colors::TEXT_MUTED));
+            ui.label(n.as_str());
+            ui.end_row();
+        }
+    });
     ui.add_space(4.0);
 
     // ── Actions + balance ─────────────────────────────────────────────────────
     ui.horizontal(|ui| {
         let (bal_color, bal_text) = if state.balance_cents >= 0 {
-            (crate::theme::colors::SUCCESS, format!("Balance: +${:.2}", state.balance_cents as f64 / 100.0))
+            (crate::theme::colors::SUCCESS, format!("Balance: +{}", fmt_ars(state.balance_cents)))
         } else {
-            (crate::theme::colors::ERROR,   format!("Balance: -${:.2}", state.balance_cents.unsigned_abs() as f64 / 100.0))
+            (crate::theme::colors::ERROR,   format!("Balance: {}", fmt_ars(state.balance_cents)))
         };
         ui.colored_label(bal_color, bal_text);
 
@@ -133,38 +149,39 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                 .and_then(|id| state.enroll_courses.iter().find(|c| c.id == id))
                 .map(|c| c.price_cents)
             {
-                ui.colored_label(crate::theme::colors::TEXT_MUTED,
-                    format!("${:.2}", price as f64 / 100.0));
+                ui.colored_label(crate::theme::colors::TEXT_MUTED, fmt_ars(price));
             }
 
-            if ui.button("Inscribir").clicked() {
-                match state.enroll_sel_period {
-                    Some(period_id) => {
-                        match EnrollmentCreateUseCase::new(
-                            make_enrollment_repo(client),
-                            make_course_period_repo(client),
-                            make_course_repo(client),
-                        ).execute(EnrollmentCreateInput { student_id: student.id, course_period_id: period_id }) {
-                            Ok(_) => {
-                                push_success(notifs, "Alumno inscrito");
-                                state.show_enroll_form    = false;
-                                state.enroll_sel_course   = None;
-                                state.enroll_sel_period   = None;
-                                state.enroll_periods      = Vec::new();
-                                state.needs_reload_ledger = true;
-                            }
-                            Err(e) => push_error(notifs, e.to_string()),
-                        }
-                    }
-                    None => push_error(notifs, "Seleccionar un período"),
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("Cancelar").clicked() {
+                    state.show_enroll_form  = false;
+                    state.enroll_sel_course = None;
+                    state.enroll_sel_period = None;
+                    state.enroll_periods    = Vec::new();
                 }
-            }
-            if ui.button("Cancelar").clicked() {
-                state.show_enroll_form  = false;
-                state.enroll_sel_course = None;
-                state.enroll_sel_period = None;
-                state.enroll_periods    = Vec::new();
-            }
+                if ui.button("Inscribir").clicked() {
+                    match state.enroll_sel_period {
+                        Some(period_id) => {
+                            match EnrollmentCreateUseCase::new(
+                                make_enrollment_repo(client),
+                                make_course_period_repo(client),
+                                make_course_repo(client),
+                            ).execute(EnrollmentCreateInput { student_id: student.id, course_period_id: period_id }) {
+                                Ok(_) => {
+                                    push_success(notifs, "Alumno inscrito");
+                                    state.show_enroll_form    = false;
+                                    state.enroll_sel_course   = None;
+                                    state.enroll_sel_period   = None;
+                                    state.enroll_periods      = Vec::new();
+                                    state.needs_reload_ledger = true;
+                                }
+                                Err(e) => push_error(notifs, e.to_string()),
+                            }
+                        }
+                        None => push_error(notifs, "Seleccionar un período"),
+                    }
+                }
+            });
         });
         ui.separator();
     }
@@ -178,26 +195,28 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
             ui.label("Fecha");
             date_selector(ui, "pay_date", &mut state.payment_due_date);
 
-            if ui.button("Guardar").clicked() {
-                let amount_cents = match parse_cents(&state.payment_amount) {
-                    Some(v) => v,
-                    None    => { push_error(notifs, "Monto inválido"); return; }
-                };
-                match PaymentCreateUseCase::new(make_payment_repo(client))
-                    .execute(PaymentCreateInput { student_id: student.id, amount_cents, due_date: state.payment_due_date, notes: None }) {
-                    Ok(_) => {
-                        push_success(notifs, "Pago registrado");
-                        state.show_payment_form   = false;
-                        state.payment_amount      = String::new();
-                        state.needs_reload_ledger = true;
-                    }
-                    Err(e) => push_error(notifs, e.to_string()),
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("Cancelar").clicked() {
+                    state.show_payment_form = false;
+                    state.payment_amount    = String::new();
                 }
-            }
-            if ui.button("Cancelar").clicked() {
-                state.show_payment_form = false;
-                state.payment_amount    = String::new();
-            }
+                if ui.button("Guardar").clicked() {
+                    let amount_cents = match parse_cents(&state.payment_amount) {
+                        Some(v) => v,
+                        None    => { push_error(notifs, "Monto inválido"); return; }
+                    };
+                    match PaymentCreateUseCase::new(make_payment_repo(client))
+                        .execute(PaymentCreateInput { student_id: student.id, amount_cents, due_date: state.payment_due_date, notes: None }) {
+                        Ok(_) => {
+                            push_success(notifs, "Pago registrado");
+                            state.show_payment_form   = false;
+                            state.payment_amount      = String::new();
+                            state.needs_reload_ledger = true;
+                        }
+                        Err(e) => push_error(notifs, e.to_string()),
+                    }
+                }
+            });
         });
         ui.separator();
     }
@@ -227,11 +246,11 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                         match entry.kind {
                             LedgerKind::Debt => ui.colored_label(
                                 crate::theme::colors::ERROR,
-                                format!("-${:.2}", entry.amount_cents as f64 / 100.0),
+                                format!("-{}", fmt_ars(entry.amount_cents)),
                             ),
                             LedgerKind::Credit => ui.colored_label(
                                 crate::theme::colors::SUCCESS,
-                                format!("+${:.2}", entry.amount_cents as f64 / 100.0),
+                                format!("+{}", fmt_ars(entry.amount_cents)),
                             ),
                         };
                     });
@@ -242,7 +261,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                             crate::theme::colors::SUCCESS
                         };
                         let sign = if entry.running_balance < 0 { "-" } else { "+" };
-                        ui.colored_label(color, format!("{sign}${:.2}", entry.running_balance.unsigned_abs() as f64 / 100.0));
+                        ui.colored_label(color, format!("{sign}{}", fmt_ars(entry.running_balance.abs())));
                     });
                     row.col(|ui| {
                         // Debt entries: mark paid or delete enrollment
@@ -332,7 +351,7 @@ fn show_pending_payments(
                 crate::theme::colors::WARNING
             };
             ui.colored_label(status_color, p.status.label());
-            ui.label(format!("${:.2} — vence {}", p.amount_cents as f64 / 100.0, p.due_date));
+            ui.label(format!("{} — vence {}", fmt_ars(p.amount_cents), p.due_date.format("%d/%m/%Y")));
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if ui.small_button("✓ Marcar pagado").clicked() { mark_id = Some(p.id); }
             });
