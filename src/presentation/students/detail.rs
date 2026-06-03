@@ -1,6 +1,5 @@
 use std::sync::{Arc, Mutex};
 
-use chrono::NaiveDate;
 use eframe::egui;
 use postgres::Client;
 use uuid::Uuid;
@@ -23,7 +22,7 @@ use crate::{
         },
     },
     domain::{enrollment::EffectiveStatus, payment::PaymentStatus},
-    presentation::{confirm_delete_modal, fmt_dt, push_error, push_success, Notifications},
+    presentation::{confirm_delete_modal, date_selector, fmt_dt, push_error, push_success, section_header, Notifications},
     presentation::table::{self, Column},
 };
 
@@ -40,16 +39,23 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
 
     // ── Header ───────────────────────────────────────────────────────────────
     ui.horizontal(|ui| {
-        if ui.button("← Alumnos").clicked() {
+        if ui.button("← Volver").clicked() {
             super::clear_detail_state(state);
             state.mode = Mode::List;
             return;
         }
         ui.heading(format!("{} {}", student.first_name, student.last_name));
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(format!("{} · {} · {}", student.age_group.label(), student.email, student.phone));
-        });
     });
+    ui.separator();
+
+    // ── Info section ─────────────────────────────────────────────────────────
+    section_header(ui, "Información");
+    egui::Grid::new("student_info").num_columns(2).show(ui, |ui| {
+        ui.label("Email");    ui.label(&student.email);         ui.end_row();
+        ui.label("Teléfono"); ui.label(&student.phone);         ui.end_row();
+        ui.label("Tipo");     ui.label(student.age_group.label()); ui.end_row();
+    });
+    ui.add_space(4.0);
     ui.separator();
 
     // ── Tabs ─────────────────────────────────────────────────────────────────
@@ -81,7 +87,6 @@ fn show_inscripciones(
         }
     }
 
-    // Enrollment creation form
     if state.show_enroll_form {
         ui.heading("Inscribir en período");
         egui::Grid::new("enroll_form").num_columns(2).show(ui, |ui| {
@@ -96,7 +101,6 @@ fn show_inscripciones(
                 .show_ui(ui, |ui| {
                     for c in &state.enroll_courses {
                         if ui.selectable_value(&mut state.enroll_sel_course, Some(c.id), &c.name).clicked() {
-                            // Load periods for selected course
                             if let Ok(ps) = CoursePeriodGetByCourseUseCase::new(make_course_period_repo(client)).execute(c.id) {
                                 state.enroll_periods    = ps;
                                 state.enroll_sel_period = None;
@@ -130,11 +134,11 @@ fn show_inscripciones(
                             .execute(EnrollmentCreateInput { student_id: student.id, course_period_id: period_id }) {
                             Ok(_) => {
                                 push_success(notifs, "Alumno inscrito");
-                                state.show_enroll_form          = false;
-                                state.enroll_sel_course         = None;
-                                state.enroll_sel_period         = None;
-                                state.enroll_periods            = Vec::new();
-                                state.needs_reload_enrollments  = true;
+                                state.show_enroll_form         = false;
+                                state.enroll_sel_course        = None;
+                                state.enroll_sel_period        = None;
+                                state.enroll_periods           = Vec::new();
+                                state.needs_reload_enrollments = true;
                             }
                             Err(e) => push_error(notifs, e.to_string()),
                         }
@@ -150,17 +154,22 @@ fn show_inscripciones(
             }
         });
         ui.separator();
-    } else if ui.button("+ Inscribir").clicked() {
-        if let Ok(courses) = CourseGetAllUseCase::new(make_course_repo(client)).execute() {
-            state.enroll_courses    = courses.into_iter().filter(|c| c.age_group == student.age_group).collect();
-            state.enroll_sel_course = None;
-            state.enroll_sel_period = None;
-            state.enroll_periods    = Vec::new();
-            state.show_enroll_form  = true;
-        }
+    } else {
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("+ Inscribir").clicked() {
+                    if let Ok(courses) = CourseGetAllUseCase::new(make_course_repo(client)).execute() {
+                        state.enroll_courses    = courses.into_iter().filter(|c| c.age_group == student.age_group).collect();
+                        state.enroll_sel_course = None;
+                        state.enroll_sel_period = None;
+                        state.enroll_periods    = Vec::new();
+                        state.show_enroll_form  = true;
+                    }
+                }
+            });
+        });
     }
 
-    // Enrollments table
     let mut enroll_action: Option<(EnrollAction, Uuid)> = None;
 
     table::builder(ui)
@@ -169,14 +178,14 @@ fn show_inscripciones(
         .column(Column::auto().at_least(70.0))
         .column(Column::auto().at_least(80.0))
         .column(Column::auto().at_least(80.0))
-        .column(Column::auto())
+        .column(Column::auto().at_least(80.0))
         .header(table::header_height(), |mut h| {
             h.col(|ui| table::head(ui, "Curso"));
             h.col(|ui| table::head(ui, "Período"));
             h.col(|ui| table::head(ui, "Estado"));
             h.col(|ui| table::head(ui, "Último pago"));
             h.col(|ui| table::head(ui, "Inscripto"));
-            h.col(|ui| table::head(ui, ""));
+            h.col(|ui| table::head(ui, "Acciones"));
         })
         .body(|mut body| {
             for e in &state.student_enrollments {
@@ -262,7 +271,6 @@ fn show_pagos(
         }
     }
 
-    // Payment creation form
     if state.show_payment_form {
         ui.heading("Registrar pago");
         egui::Grid::new("payment_form").num_columns(2).show(ui, |ui| {
@@ -281,10 +289,13 @@ fn show_pagos(
                     }
                 });
             ui.end_row();
-            ui.label("Monto");    ui.text_edit_singleline(&mut state.payment_amount);   ui.end_row();
-            ui.label("Fecha");    ui.text_edit_singleline(&mut state.payment_due_date); ui.end_row();
+            ui.label("Monto");
+            ui.text_edit_singleline(&mut state.payment_amount);
+            ui.end_row();
+            ui.label("Fecha");
+            date_selector(ui, "pay_date", &mut state.payment_due_date);
+            ui.end_row();
         });
-        ui.label("Fecha: YYYY-MM-DD");
 
         ui.horizontal(|ui| {
             if ui.button("Guardar").clicked() {
@@ -296,19 +307,14 @@ fn show_pagos(
                     Some(v) => v,
                     None    => { push_error(notifs, "Monto inválido"); return; }
                 };
-                let due_date = match NaiveDate::parse_from_str(&state.payment_due_date, "%Y-%m-%d").ok() {
-                    Some(d) => d,
-                    None    => { push_error(notifs, "Fecha inválida (YYYY-MM-DD)"); return; }
-                };
                 match PaymentCreateUseCase::new(make_payment_repo(client))
-                    .execute(PaymentCreateInput { enrollment_id, amount_cents, due_date, notes: None }) {
+                    .execute(PaymentCreateInput { enrollment_id, amount_cents, due_date: state.payment_due_date, notes: None }) {
                     Ok(_) => {
                         push_success(notifs, "Pago registrado");
-                        state.show_payment_form     = false;
-                        state.payment_amount        = String::new();
-                        state.payment_due_date      = String::new();
+                        state.show_payment_form      = false;
+                        state.payment_amount         = String::new();
                         state.payment_sel_enrollment = None;
-                        state.needs_reload_payments = true;
+                        state.needs_reload_payments  = true;
                     }
                     Err(e) => push_error(notifs, e.to_string()),
                 }
@@ -317,19 +323,23 @@ fn show_pagos(
                 state.show_payment_form      = false;
                 state.payment_sel_enrollment = None;
                 state.payment_amount         = String::new();
-                state.payment_due_date       = String::new();
             }
         });
         ui.separator();
-    } else if ui.button("+ Registrar pago").clicked() {
-        if let Ok(enrollments) = EnrollmentGetByStudentUseCase::new(make_enrollment_repo(client)).execute(student.id) {
-            state.payment_enrollments    = enrollments;
-            state.payment_sel_enrollment = None;
-            state.show_payment_form      = true;
-        }
+    } else {
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("+ Registrar pago").clicked() {
+                    if let Ok(enrollments) = EnrollmentGetByStudentUseCase::new(make_enrollment_repo(client)).execute(student.id) {
+                        state.payment_enrollments    = enrollments;
+                        state.payment_sel_enrollment = None;
+                        state.show_payment_form      = true;
+                    }
+                }
+            });
+        });
     }
 
-    // Payments table
     let mut pay_action: Option<(PayAction, Uuid)> = None;
 
     table::builder(ui)
@@ -338,14 +348,14 @@ fn show_pagos(
         .column(Column::exact(75.0))
         .column(Column::auto().at_least(80.0))
         .column(Column::auto().at_least(100.0))
-        .column(Column::auto())
+        .column(Column::auto().at_least(80.0))
         .header(table::header_height(), |mut h| {
             h.col(|ui| table::head(ui, "Curso"));
             h.col(|ui| table::head(ui, "Período"));
             h.col(|ui| table::head(ui, "Monto"));
             h.col(|ui| table::head(ui, "Estado"));
             h.col(|ui| table::head(ui, "Pagado"));
-            h.col(|ui| table::head(ui, ""));
+            h.col(|ui| table::head(ui, "Acciones"));
         })
         .body(|mut body| {
             for p in &state.student_payments {

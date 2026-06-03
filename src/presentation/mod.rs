@@ -7,7 +7,7 @@ pub mod teachers;
 
 use std::time::{Duration, Instant};
 
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{Datelike, DateTime, FixedOffset, NaiveDate, Utc};
 use eframe::egui;
 use uuid::Uuid;
 
@@ -80,6 +80,64 @@ fn art() -> FixedOffset {
 
 pub fn fmt_dt(dt: DateTime<Utc>) -> String {
     dt.with_timezone(&art()).format("%d/%m/%Y %H:%M").to_string()
+}
+
+/// Three-dropdown date selector (día / mes / año). No external dependency.
+pub fn date_selector(ui: &mut egui::Ui, id: &str, date: &mut NaiveDate) {
+    const MONTHS: [&str; 12] = [
+        "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+        "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+    ];
+
+    let mut y = date.year();
+    let mut m = date.month();
+    let mut d = date.day();
+
+    ui.horizontal(|ui| {
+        egui::ComboBox::from_id_salt(format!("{id}_d"))
+            .selected_text(format!("{d:02}"))
+            .show_ui(ui, |ui| {
+                for day in 1..=days_in_month(y, m) {
+                    ui.selectable_value(&mut d, day, format!("{day:02}"));
+                }
+            });
+        egui::ComboBox::from_id_salt(format!("{id}_m"))
+            .selected_text(MONTHS[(m - 1) as usize])
+            .show_ui(ui, |ui| {
+                for (i, name) in MONTHS.iter().enumerate() {
+                    ui.selectable_value(&mut m, (i + 1) as u32, *name);
+                }
+            });
+        egui::ComboBox::from_id_salt(format!("{id}_y"))
+            .selected_text(y.to_string())
+            .show_ui(ui, |ui| {
+                for year in 2020..=2030 {
+                    ui.selectable_value(&mut y, year, year.to_string());
+                }
+            });
+    });
+
+    let d = d.min(days_in_month(y, m));
+    if let Some(nd) = NaiveDate::from_ymd_opt(y, m, d) { *date = nd; }
+}
+
+fn days_in_month(year: i32, month: u32) -> u32 {
+    let first_next = if month == 12 {
+        NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
+    } else {
+        NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
+    };
+    (first_next - chrono::Duration::days(1)).day()
+}
+
+pub fn section_header(ui: &mut egui::Ui, label: &str) {
+    ui.label(
+        egui::RichText::new(label)
+            .size(crate::theme::sizes::FONT_SMALL)
+            .color(crate::theme::colors::TEXT_MUTED)
+            .strong(),
+    );
+    ui.separator();
 }
 
 pub fn confirm_delete_modal(ctx: &egui::Context, pending: &mut Option<Uuid>) -> Option<Uuid> {

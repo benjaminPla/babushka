@@ -15,6 +15,7 @@ enum Action { Open, Edit, Delete }
 pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesState, notifs: &mut Notifications) {
     ui.horizontal(|ui| {
         ui.heading("Cursos");
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
         if ui.button("+ Nuevo").clicked() {
             clear_course_form(state);
             if let Ok(ts) = crate::application::teacher::get_all::TeacherGetAllUseCase::new(
@@ -24,6 +25,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
             }
             state.mode = Mode::CreateCourse;
         }
+        });
     });
     ui.separator();
 
@@ -44,7 +46,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
             h.col(|ui| table::head(ui, "Cap."));
             h.col(|ui| table::head(ui, "Mensual"));
             h.col(|ui| table::head(ui, "Por clase"));
-            h.col(|ui| table::head(ui, ""));
+            h.col(|ui| table::head(ui, "Acciones"));
         })
         .body(|mut body| {
             for c in &state.courses {

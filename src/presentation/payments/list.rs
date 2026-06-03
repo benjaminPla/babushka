@@ -105,7 +105,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Payments
             h.col(|ui| table::head(ui, "Monto"));
             h.col(|ui| table::head(ui, "Estado"));
             h.col(|ui| table::head(ui, "Pagado"));
-            h.col(|ui| table::head(ui, ""));
+            h.col(|ui| table::head(ui, "Acciones"));
         })
         .body(|mut body| {
             for p in &state.payments {

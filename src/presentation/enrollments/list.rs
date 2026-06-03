@@ -39,7 +39,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Enrollme
             h.col(|ui| table::head(ui, "Estado"));
             h.col(|ui| table::head(ui, "Último pago"));
             h.col(|ui| table::head(ui, "Inscripto"));
-            h.col(|ui| table::head(ui, ""));
+            h.col(|ui| table::head(ui, "Acciones"));
         })
         .body(|mut body| {
             for e in &state.enrollments {

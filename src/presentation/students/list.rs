@@ -15,10 +15,12 @@ enum Action { Open, Edit, Delete }
 pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut StudentsState, notifs: &mut Notifications) {
     ui.horizontal(|ui| {
         ui.heading("Alumnos");
-        if ui.button("+ Nuevo").clicked() {
-            clear_form(state);
-            state.mode = Mode::Create;
-        }
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if ui.button("+ Nuevo").clicked() {
+                clear_form(state);
+                state.mode = Mode::Create;
+            }
+        });
     });
     ui.separator();
 
@@ -37,7 +39,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
             h.col(|ui| table::head(ui, "Email"));
             h.col(|ui| table::head(ui, "Teléfono"));
             h.col(|ui| table::head(ui, "Tipo"));
-            h.col(|ui| table::head(ui, ""));
+            h.col(|ui| table::head(ui, "Acciones"));
         })
         .body(|mut body| {
             for s in &state.students {

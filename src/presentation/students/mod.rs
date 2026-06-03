@@ -4,6 +4,7 @@ mod list;
 
 use std::sync::{Arc, Mutex};
 
+use chrono::{Datelike, Local, NaiveDate};
 use eframe::egui;
 use postgres::Client;
 use uuid::Uuid;
@@ -50,17 +51,17 @@ pub struct StudentsState {
     pub updated_at:     String,
 
     // detail
-    pub selected_student:       Option<StudentDto>,
-    pub detail_tab:             DetailTab,
+    pub selected_student: Option<StudentDto>,
+    pub detail_tab:       DetailTab,
 
     // inscripciones tab
-    pub student_enrollments:        Vec<EnrollmentDto>,
-    pub needs_reload_enrollments:   bool,
-    pub show_enroll_form:           bool,
-    pub enroll_courses:             Vec<CourseDto>,
-    pub enroll_sel_course:          Option<Uuid>,
-    pub enroll_periods:             Vec<CoursePeriodDto>,
-    pub enroll_sel_period:          Option<Uuid>,
+    pub student_enrollments:      Vec<EnrollmentDto>,
+    pub needs_reload_enrollments: bool,
+    pub show_enroll_form:         bool,
+    pub enroll_courses:           Vec<CourseDto>,
+    pub enroll_sel_course:        Option<Uuid>,
+    pub enroll_periods:           Vec<CoursePeriodDto>,
+    pub enroll_sel_period:        Option<Uuid>,
 
     // pagos tab
     pub student_payments:       Vec<PaymentDto>,
@@ -69,11 +70,16 @@ pub struct StudentsState {
     pub payment_enrollments:    Vec<EnrollmentDto>,
     pub payment_sel_enrollment: Option<Uuid>,
     pub payment_amount:         String,
-    pub payment_due_date:       String,
+    pub payment_due_date:       NaiveDate,
 
     pub confirm_delete:            Option<Uuid>,
     pub confirm_delete_enrollment: Option<Uuid>,
     pub confirm_delete_payment:    Option<Uuid>,
+}
+
+fn today() -> NaiveDate {
+    let n = Local::now();
+    NaiveDate::from_ymd_opt(n.year(), n.month(), n.day()).unwrap()
 }
 
 impl Default for StudentsState {
@@ -106,7 +112,7 @@ impl Default for StudentsState {
             payment_enrollments:       Vec::new(),
             payment_sel_enrollment:    None,
             payment_amount:            String::new(),
-            payment_due_date:          String::new(),
+            payment_due_date:          today(),
             confirm_delete:            None,
             confirm_delete_enrollment: None,
             confirm_delete_payment:    None,
@@ -146,7 +152,7 @@ pub fn clear_detail_state(state: &mut StudentsState) {
     state.payment_enrollments       = Vec::new();
     state.payment_sel_enrollment    = None;
     state.payment_amount            = String::new();
-    state.payment_due_date          = String::new();
+    state.payment_due_date          = today();
     state.confirm_delete_enrollment = None;
     state.confirm_delete_payment    = None;
 }
@@ -172,8 +178,8 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     }
 
     match state.mode {
-        Mode::List                  => list::show(ui, client, state, notifs),
-        Mode::Create | Mode::Edit   => form::show(ui, client, state, notifs),
-        Mode::Detail                => detail::show(ui, client, state, notifs),
+        Mode::List                => list::show(ui, client, state, notifs),
+        Mode::Create | Mode::Edit => form::show(ui, client, state, notifs),
+        Mode::Detail              => detail::show(ui, client, state, notifs),
     }
 }

@@ -11,7 +11,7 @@ use crate::{
         delete::CoursePeriodDeleteUseCase,
         get_by_course::CoursePeriodGetByCourseUseCase,
     },
-    presentation::{confirm_delete_modal, push_error, push_success, Notifications},
+    presentation::{confirm_delete_modal, push_error, push_success, section_header, Notifications},
     presentation::table::{self, Column},
 };
 
@@ -30,30 +30,34 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
         }
     }
 
+    // ── Header ────────────────────────────────────────────────────────────────
     ui.horizontal(|ui| {
-        if ui.button("← Cursos").clicked() {
-            state.mode                 = Mode::List;
-            state.selected_course      = None;
-            state.periods              = Vec::new();
-            state.show_period_form     = false;
+        if ui.button("← Volver").clicked() {
+            state.mode             = Mode::List;
+            state.selected_course  = None;
+            state.periods          = Vec::new();
+            state.show_period_form = false;
             return;
         }
         ui.heading(format!("{} — {}", course.name, course.age_group.label()));
     });
+    ui.separator();
 
+    // ── Info section ──────────────────────────────────────────────────────────
+    section_header(ui, "Información");
     egui::Grid::new("course_detail_info").num_columns(2).show(ui, |ui| {
-        ui.label("Profesor");       ui.label(&course.teacher_name);                              ui.end_row();
-        ui.label("Capacidad");      ui.label(course.capacity.to_string());                       ui.end_row();
-        ui.label("Precio mensual"); ui.label(format!("${}", format_price(course.price_cents)));  ui.end_row();
+        ui.label("Profesor");       ui.label(&course.teacher_name);                                   ui.end_row();
+        ui.label("Capacidad");      ui.label(course.capacity.to_string());                            ui.end_row();
+        ui.label("Precio mensual"); ui.label(format!("${}", format_price(course.price_cents)));       ui.end_row();
         ui.label("Precio clase");   ui.label(format!("${}", format_price(course.class_price_cents))); ui.end_row();
         if let Some(n) = &course.notes {
             ui.label("Notas"); ui.label(n); ui.end_row();
         }
     });
-
+    ui.add_space(4.0);
     ui.separator();
 
-    // ── Period form ──────────────────────────────────────────────────────────
+    // ── Periods section ───────────────────────────────────────────────────────
     if state.show_period_form {
         ui.heading("Nuevo período");
         egui::Grid::new("period_form").num_columns(2).show(ui, |ui| {
@@ -66,7 +70,6 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                     }
                 });
             ui.end_row();
-
             ui.label("Mes");
             egui::ComboBox::from_id_salt("period_month")
                 .selected_text(MONTHS[(state.period_month - 1) as usize])
@@ -106,21 +109,19 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                     Err(e) => push_error(notifs, e.to_string()),
                 }
             }
-            if ui.button("Cancelar").clicked() {
-                state.show_period_form = false;
-            }
+            if ui.button("Cancelar").clicked() { state.show_period_form = false; }
         });
         ui.separator();
     } else {
         ui.horizontal(|ui| {
-            ui.heading("Períodos");
-            if ui.button("+ Nuevo período").clicked() {
-                state.show_period_form = true;
-            }
+            section_header(ui, "Períodos");
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button("+ Nuevo período").clicked() { state.show_period_form = true; }
+            });
         });
     }
 
-    // ── Periods table ────────────────────────────────────────────────────────
+    // ── Periods table ─────────────────────────────────────────────────────────
     let mut delete_id: Option<Uuid> = None;
 
     table::builder(ui)
@@ -129,14 +130,14 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
         .column(Column::exact(90.0))
         .column(Column::exact(70.0))
         .column(Column::exact(80.0))
-        .column(Column::auto())
+        .column(Column::auto().at_least(60.0))
         .header(table::header_height(), |mut h| {
             h.col(|ui| table::head(ui, "Etiqueta"));
             h.col(|ui| table::head(ui, "Inicio"));
             h.col(|ui| table::head(ui, "Fin"));
             h.col(|ui| table::head(ui, "Inscritos"));
             h.col(|ui| table::head(ui, "Estado"));
-            h.col(|ui| table::head(ui, ""));
+            h.col(|ui| table::head(ui, "Acciones"));
         })
         .body(|mut body| {
             for p in &state.periods {
