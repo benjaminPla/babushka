@@ -36,7 +36,6 @@ pub mod colors {
     // Notifications
     pub const NOTIF_SUCCESS: Color32 = Color32::from_rgb( 42, 128,  76);
     pub const NOTIF_ERROR:   Color32 = Color32::from_rgb(158,  48,  48);
-    pub const NOTIF_WARNING: Color32 = Color32::from_rgb(162, 122,  42);
 
     pub const WHITE: Color32 = Color32::WHITE;
 }

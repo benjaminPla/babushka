@@ -55,21 +55,23 @@ impl Teacher {
         Self { created_at, email, first_name, id, last_name, notes, phone, updated_at }
     }
 
-    // ── Mutations ────────────────────────────────────────────────────────────
-
     pub fn update(
-        &mut self,
+        self,
         email:      Email,
         first_name: FirstName,
         last_name:  LastName,
         notes:      Option<String>,
         phone:      Phone,
-    ) {
-        self.email      = email;
-        self.first_name = first_name;
-        self.last_name  = last_name;
-        self.notes      = notes;
-        self.phone      = phone;
+    ) -> Self {
+        Self {
+            email,
+            first_name,
+            last_name,
+            notes,
+            phone,
+            updated_at: Utc::now(),
+            ..self
+        }
     }
 
     // ── Getters ──────────────────────────────────────────────────────────────

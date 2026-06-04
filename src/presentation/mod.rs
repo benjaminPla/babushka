@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 const TIMEOUT: Duration = Duration::from_secs(5);
 
-pub enum NotificationKind { Error, Success, Warning }
+pub enum NotificationKind { Error, Success }
 
 pub struct Notification {
     pub message: String,
@@ -49,7 +49,6 @@ pub fn render_notifications(ui: &mut egui::Ui, notifs: &mut Notifications) {
                 let bg = match notif.kind {
                     NotificationKind::Error   => crate::theme::colors::NOTIF_ERROR,
                     NotificationKind::Success => crate::theme::colors::NOTIF_SUCCESS,
-                    NotificationKind::Warning => crate::theme::colors::NOTIF_WARNING,
                 };
                 egui::Frame::new()
                     .fill(bg)

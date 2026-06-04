@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::NaiveDate;
 use postgres::{Client, Row};
 use uuid::Uuid;
 
@@ -26,20 +26,17 @@ fn pg_err(e: postgres::Error) -> CoursePeriodRepoError {
 }
 
 fn row_to_period(row: &Row) -> Result<CoursePeriod, CoursePeriodRepoError> {
-    let id:         Uuid          = row.get("id");
-    let course_id:  Uuid          = row.get("course_id");
-    let label:      String        = row.get("label");
-    let start_date: NaiveDate     = row.get("start_date");
-    let end_date:   NaiveDate     = row.get("end_date");
-    let enrolled:   i64           = row.get("enrolled");
-    let created_at: DateTime<Utc> = row.get("created_at");
-    let updated_at: DateTime<Utc> = row.get("updated_at");
-    Ok(CoursePeriod::reconstitute(id, course_id, label, start_date, end_date, enrolled, created_at, updated_at))
+    let id:         Uuid      = row.get("id");
+    let course_id:  Uuid      = row.get("course_id");
+    let label:      String    = row.get("label");
+    let start_date: NaiveDate = row.get("start_date");
+    let end_date:   NaiveDate = row.get("end_date");
+    let enrolled:   i64       = row.get("enrolled");
+    Ok(CoursePeriod::reconstitute(id, course_id, label, start_date, end_date, enrolled))
 }
 
 const SELECT: &str = "
     SELECT cp.id, cp.course_id, cp.label, cp.start_date, cp.end_date,
-           cp.created_at, cp.updated_at,
            COALESCE(ec.enrolled, 0) AS enrolled
     FROM course_periods cp
     LEFT JOIN (

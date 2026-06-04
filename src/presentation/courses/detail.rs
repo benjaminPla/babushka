@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use chrono::{Datelike, Duration, NaiveDate};
+use chrono::{Duration, NaiveDate};
 use eframe::egui;
 use postgres::Client;
 use uuid::Uuid;
@@ -166,11 +166,3 @@ const MONTHS: [&str; 12] = [
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ];
 
-fn last_day_of_month(year: i32, month: u32) -> u32 {
-    let first_next = if month == 12 {
-        NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap()
-    } else {
-        NaiveDate::from_ymd_opt(year, month + 1, 1).unwrap()
-    };
-    (first_next - Duration::days(1)).day()
-}

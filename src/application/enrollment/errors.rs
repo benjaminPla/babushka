@@ -2,8 +2,6 @@ use crate::domain::enrollment::repository::EnrollmentRepoError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EnrollmentAppError {
-    #[error("{0}")]
-    Validation(String),
     #[error("error de base de datos")]
     Database,
     #[error("inscripción no encontrada")]

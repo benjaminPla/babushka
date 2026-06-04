@@ -34,13 +34,13 @@ impl TeacherUpdateUseCase {
     }
 
     pub fn execute(&self, input: TeacherUpdateInput) -> Result<(), TeacherAppError> {
-        let mut teacher = self.teacher_repo.get_by_id(input.id)?;
-        let email       = Email::new(input.email)?;
-        let first_name  = FirstName::new(input.first_name)?;
-        let last_name   = LastName::new(input.last_name)?;
-        let phone       = Phone::new(input.phone)?;
-        teacher.update(email, first_name, last_name, input.notes, phone);
-        self.teacher_repo.update(&teacher)?;
+        let teacher    = self.teacher_repo.get_by_id(input.id)?;
+        let email      = Email::new(input.email)?;
+        let first_name = FirstName::new(input.first_name)?;
+        let last_name  = LastName::new(input.last_name)?;
+        let phone      = Phone::new(input.phone)?;
+        let updated    = teacher.update(email, first_name, last_name, input.notes, phone);
+        self.teacher_repo.update(&updated)?;
         log::info!("[teacher] updated: id={}", input.id);
         Ok(())
     }

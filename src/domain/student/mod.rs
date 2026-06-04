@@ -61,23 +61,24 @@ impl Student {
         Self { age_group, created_at, email, first_name, id, last_name, notes, phone, updated_at }
     }
 
-    // ── Mutations ────────────────────────────────────────────────────────────
-
     pub fn update(
-        &mut self,
+        self,
         age_group:  AgeGroup,
         email:      Email,
         first_name: FirstName,
         last_name:  LastName,
         notes:      Option<String>,
         phone:      Phone,
-    ) {
-        self.age_group  = age_group;
-        self.email      = email;
-        self.first_name = first_name;
-        self.last_name  = last_name;
-        self.notes      = notes;
-        self.phone      = phone;
+    ) -> Self {
+        Self {
+            age_group,
+            email,
+            first_name,
+            last_name,
+            notes,
+            phone,
+            ..self
+        }
     }
 
     // ── Getters ──────────────────────────────────────────────────────────────
