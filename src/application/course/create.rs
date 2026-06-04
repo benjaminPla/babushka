@@ -4,17 +4,24 @@ use uuid::Uuid;
 
 use crate::{
     application::course::errors::CourseAppError,
-    domain::{course::{repository::CourseRepo, Course}, shared::value_objects::age_group::AgeGroup},
+    domain::{
+        course::{
+            repository::CourseRepo,
+            value_objects::{course_capacity::CourseCapacity, course_name::CourseName},
+            Course,
+        },
+        shared::value_objects::{age_group::AgeGroup, cents::Cents, notes::Notes},
+    },
 };
 
 pub struct CourseCreateInput {
-    pub teacher_id:        Uuid,
-    pub name:              String,
     pub age_group:         AgeGroup,
     pub capacity:          i16,
-    pub price_cents:       i32,
     pub class_price_cents: i32,
+    pub month_price_cents: i32,
+    pub name:              String,
     pub notes:             Option<String>,
+    pub teacher_id:        Uuid,
 }
 
 pub struct CourseCreateUseCase {
@@ -25,12 +32,12 @@ impl CourseCreateUseCase {
     pub fn new(course_repo: Arc<dyn CourseRepo>) -> Self { Self { course_repo } }
 
     pub fn execute(&self, input: CourseCreateInput) -> Result<(), CourseAppError> {
-        if input.name.trim().is_empty()    { return Err(CourseAppError::Validation("nombre requerido".into())); }
-        if input.name.len() > 100          { return Err(CourseAppError::Validation("nombre demasiado largo".into())); }
-        if input.capacity <= 0             { return Err(CourseAppError::Validation("capacidad debe ser mayor a 0".into())); }
-        if input.price_cents <= 0          { return Err(CourseAppError::Validation("precio debe ser mayor a 0".into())); }
-        if input.class_price_cents <= 0    { return Err(CourseAppError::Validation("precio por clase debe ser mayor a 0".into())); }
-        let course = Course::new(input.teacher_id, input.name, input.age_group, input.capacity, input.price_cents, input.class_price_cents, input.notes);
+        let capacity          = CourseCapacity::new(input.capacity)?;
+        let class_price_cents = Cents::new(input.class_price_cents)?;
+        let month_price_cents = Cents::new(input.month_price_cents)?;
+        let name              = CourseName::new(input.name)?;
+        let notes             = input.notes.map(Notes::new).transpose()?;
+        let course = Course::new(input.age_group, capacity, class_price_cents, month_price_cents, name, notes, input.teacher_id);
         self.course_repo.create(&course)?;
         log::info!("[course] created: id={}", course.id());
         Ok(())

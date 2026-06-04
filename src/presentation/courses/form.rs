@@ -85,7 +85,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
             Ok(v)  => v,
             Err(_) => { push_error(notifs, "Capacidad inválida"); return; }
         };
-        let price_cents = match parse_price(&state.price) {
+        let month_price_cents = match parse_price(&state.price) {
             Some(v) => v,
             None    => { push_error(notifs, "Precio mensual inválido"); return; }
         };
@@ -97,12 +97,12 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
 
         let result = match state.mode {
             Mode::CreateCourse => CourseCreateUseCase::new(make_course_repo(client)).execute(CourseCreateInput {
-                teacher_id, name: state.name.clone(), age_group: state.age_group.clone(),
-                capacity, price_cents, class_price_cents, notes,
+                teacher_id, name: state.name.clone(), age_group: state.age_group,
+                capacity, month_price_cents, class_price_cents, notes,
             }),
             Mode::EditCourse => CourseUpdateUseCase::new(make_course_repo(client)).execute(CourseUpdateInput {
                 id: state.editing_id.unwrap(), teacher_id, name: state.name.clone(),
-                age_group: state.age_group.clone(), capacity, price_cents, class_price_cents, notes,
+                age_group: state.age_group, capacity, month_price_cents, class_price_cents, notes,
             }),
             _ => unreachable!(),
         };

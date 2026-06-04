@@ -4,18 +4,24 @@ use uuid::Uuid;
 
 use crate::{
     application::course::errors::CourseAppError,
-    domain::{course::repository::CourseRepo, shared::value_objects::age_group::AgeGroup},
+    domain::{
+        course::{
+            repository::CourseRepo,
+            value_objects::{course_capacity::CourseCapacity, course_name::CourseName},
+        },
+        shared::value_objects::{age_group::AgeGroup, cents::Cents, notes::Notes},
+    },
 };
 
 pub struct CourseUpdateInput {
     pub id:                Uuid,
-    pub teacher_id:        Uuid,
-    pub name:              String,
     pub age_group:         AgeGroup,
     pub capacity:          i16,
-    pub price_cents:       i32,
     pub class_price_cents: i32,
+    pub month_price_cents: i32,
+    pub name:              String,
     pub notes:             Option<String>,
+    pub teacher_id:        Uuid,
 }
 
 pub struct CourseUpdateUseCase {
@@ -26,14 +32,33 @@ impl CourseUpdateUseCase {
     pub fn new(course_repo: Arc<dyn CourseRepo>) -> Self { Self { course_repo } }
 
     pub fn execute(&self, input: CourseUpdateInput) -> Result<(), CourseAppError> {
-        if input.name.trim().is_empty()    { return Err(CourseAppError::Validation("nombre requerido".into())); }
-        if input.name.len() > 100          { return Err(CourseAppError::Validation("nombre demasiado largo".into())); }
-        if input.capacity <= 0             { return Err(CourseAppError::Validation("capacidad debe ser mayor a 0".into())); }
-        if input.price_cents <= 0          { return Err(CourseAppError::Validation("precio debe ser mayor a 0".into())); }
-        if input.class_price_cents <= 0    { return Err(CourseAppError::Validation("precio por clase debe ser mayor a 0".into())); }
-        let mut course = self.course_repo.get_by_id(input.id)?;
-        course.update(input.teacher_id, input.name, input.age_group, input.capacity, input.price_cents, input.class_price_cents, input.notes);
-        self.course_repo.update(&course)?;
+        let course            = self.course_repo.get_by_id(input.id)?;
+        let capacity          = CourseCapacity::new(input.capacity)?;
+        let class_price_cents = Cents::new(input.class_price_cents)?;
+        let month_price_cents = Cents::new(input.month_price_cents)?;
+        let name              = CourseName::new(input.name)?;
+        let notes             = input.notes.map(Notes::new).transpose()?;
+
+        // Prevent lowering capacity below current enrollment count
+        let enrolled = self.course_repo.count_enrollments(input.id)?;
+        if (capacity.value() as i64) < enrolled {
+            return Err(CourseAppError::Validation(
+                format!("no se puede reducir la capacidad: hay {} alumnos inscriptos", enrolled)
+            ));
+        }
+
+        // Prevent age_group change when enrolled students don't match
+        if input.age_group != course.age_group() {
+            let conflict = self.course_repo.has_age_group_conflict(input.id, input.age_group.as_db_str())?;
+            if conflict {
+                return Err(CourseAppError::Validation(
+                    "no se puede cambiar el grupo de edad: hay alumnos inscriptos del grupo opuesto".into()
+                ));
+            }
+        }
+
+        let updated = course.update(input.age_group, capacity, class_price_cents, month_price_cents, name, notes, input.teacher_id);
+        self.course_repo.update(&updated)?;
         log::info!("[course] updated: id={}", input.id);
         Ok(())
     }

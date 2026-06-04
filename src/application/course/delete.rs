@@ -12,6 +12,12 @@ impl CourseDeleteUseCase {
     pub fn new(course_repo: Arc<dyn CourseRepo>) -> Self { Self { course_repo } }
 
     pub fn execute(&self, id: Uuid) -> Result<(), CourseAppError> {
+        let enrolled = self.course_repo.count_enrollments(id)?;
+        if enrolled > 0 {
+            return Err(CourseAppError::Validation(
+                format!("no se puede eliminar el curso: tiene {} alumnos inscriptos", enrolled)
+            ));
+        }
         self.course_repo.delete(id)?;
         log::info!("[course] deleted: id={}", id);
         Ok(())

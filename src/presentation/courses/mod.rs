@@ -32,9 +32,9 @@ pub struct CoursesState {
     pub mode:         Mode,
 
     // list
-    pub courses:      Vec<CourseDto>,
-    pub needs_reload: bool,
-    pub list_filter:  String,
+    pub courses:        Vec<CourseDto>,
+    pub needs_reload:   bool,
+    pub filter_name: String,
 
     // course form
     pub editing_id:   Option<Uuid>,
@@ -53,13 +53,13 @@ pub struct CoursesState {
     pub needs_reload_periods: bool,
 
     // period form
-    pub period_year:       i32,
-    pub period_month:      u32,
-    pub show_period_form:  bool,
+    pub period_year:      i32,
+    pub period_month:     u32,
+    pub show_period_form: bool,
 
     // read-only timestamps
-    pub created_at:   String,
-    pub updated_at:   String,
+    pub created_at: String,
+    pub updated_at: String,
 
     pub confirm_delete:        Option<Uuid>,
     pub confirm_delete_period: Option<Uuid>,
@@ -69,29 +69,29 @@ impl Default for CoursesState {
     fn default() -> Self {
         let now = chrono::Local::now();
         Self {
-            mode:                    Mode::List,
-            courses:                 Vec::new(),
-            needs_reload:            true,
-            list_filter:             String::new(),
-            editing_id:              None,
-            name:                    String::new(),
-            teacher_id:              None,
-            teachers:                Vec::new(),
-            age_group:               AgeGroup::default(),
-            capacity:                String::new(),
-            price:                   String::new(),
-            class_price:             String::new(),
-            course_notes:            String::new(),
-            selected_course:         None,
-            periods:                 Vec::new(),
-            needs_reload_periods:    false,
-            period_year:             now.year(),
-            period_month:            now.month(),
-            show_period_form:        false,
-            created_at:              String::new(),
-            updated_at:              String::new(),
-            confirm_delete:          None,
-            confirm_delete_period:   None,
+            mode:                  Mode::List,
+            courses:               Vec::new(),
+            needs_reload:          true,
+            filter_name:           String::new(),
+            editing_id:            None,
+            name:                  String::new(),
+            teacher_id:            None,
+            teachers:              Vec::new(),
+            age_group:             AgeGroup::Adult,
+            capacity:              String::new(),
+            price:                 String::new(),
+            class_price:           String::new(),
+            course_notes:          String::new(),
+            selected_course:       None,
+            periods:               Vec::new(),
+            needs_reload_periods:  false,
+            period_year:           now.year(),
+            period_month:          now.month(),
+            show_period_form:      false,
+            created_at:            String::new(),
+            updated_at:            String::new(),
+            confirm_delete:        None,
+            confirm_delete_period: None,
         }
     }
 }
@@ -116,7 +116,7 @@ pub fn clear_course_form(state: &mut CoursesState) {
     state.editing_id   = None;
     state.name         = String::new();
     state.teacher_id   = None;
-    state.age_group    = AgeGroup::default();
+    state.age_group    = AgeGroup::Adult;
     state.capacity     = String::new();
     state.price        = String::new();
     state.class_price  = String::new();

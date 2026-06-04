@@ -16,38 +16,37 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
     ui.horizontal(|ui| {
         ui.heading("Cursos");
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-        if ui.button("+ Nuevo").clicked() {
-            clear_course_form(state);
-            if let Ok(ts) = crate::application::teacher::get_all::TeacherGetAllUseCase::new(
-                super::make_teacher_repo(client)
-            ).execute() {
-                state.teachers = ts;
+            if ui.button("+ Nuevo").clicked() {
+                clear_course_form(state);
+                if let Ok(ts) = crate::application::teacher::get_all::TeacherGetAllUseCase::new(
+                    super::make_teacher_repo(client)
+                ).execute() {
+                    state.teachers = ts;
+                }
+                state.mode = Mode::CreateCourse;
             }
-            state.mode = Mode::CreateCourse;
-        }
         });
     });
     ui.separator();
 
-    let mut action: Option<(Action, Uuid)> = None;
+    let name_f = state.filter_name.to_lowercase();
 
-    let f = state.list_filter.to_lowercase();
     let visible: Vec<_> = state.courses.iter()
-        .filter(|c| f.is_empty() || c.name.to_lowercase().contains(&f))
+        .filter(|c| name_f.is_empty() || c.name.to_lowercase().contains(&name_f))
         .cloned()
         .collect();
 
+    let mut action: Option<(Action, Uuid)> = None;
+
     table::builder(ui)
         .column(Column::remainder().at_least(120.0))
-        .column(Column::auto().at_least(100.0))
         .column(Column::auto().at_least(60.0))
-        .column(Column::exact(60.0))
-        .column(Column::exact(70.0))
+        .column(Column::exact(50.0))
+        .column(Column::exact(80.0))
         .column(Column::exact(80.0))
         .column(Column::auto())
         .header(table::header_height(), |mut h| {
-            h.col(|ui| table::head_filter(ui, "Nombre", &mut state.list_filter));
-            h.col(|ui| table::head(ui, "Profesor"));
+            h.col(|ui| table::head_filter(ui, "Nombre", &mut state.filter_name));
             h.col(|ui| table::head(ui, "Grupo"));
             h.col(|ui| table::head(ui, "Cap."));
             h.col(|ui| table::head(ui, "Mensual"));
@@ -58,10 +57,9 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
             for c in &visible {
                 body.row(table::row_height(), |mut row| {
                     row.col(|ui| { ui.label(&c.name); });
-                    row.col(|ui| { ui.label(&c.teacher_name); });
                     row.col(|ui| { ui.label(c.age_group.label()); });
                     row.col(|ui| { ui.label(c.capacity.to_string()); });
-                    row.col(|ui| { ui.label(format_price(c.price_cents)); });
+                    row.col(|ui| { ui.label(format_price(c.month_price_cents)); });
                     row.col(|ui| { ui.label(format_price(c.class_price_cents)); });
                     row.col(|ui| {
                         if ui.small_button("Ver").clicked()      { action = Some((Action::Open,   c.id)); }
@@ -86,9 +84,9 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                     state.editing_id   = Some(id);
                     state.name         = c.name.clone();
                     state.teacher_id   = Some(c.teacher_id);
-                    state.age_group    = c.age_group.clone();
+                    state.age_group    = c.age_group;
                     state.capacity     = c.capacity.to_string();
-                    state.price        = format_price(c.price_cents);
+                    state.price        = format_price(c.month_price_cents);
                     state.class_price  = format_price(c.class_price_cents);
                     state.course_notes = c.notes.clone().unwrap_or_default();
                     state.created_at   = fmt_dt(c.created_at);

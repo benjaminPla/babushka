@@ -45,13 +45,14 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
     section_header(ui, "Información");
     ui.heading(format!("{} — {}", course.name, course.age_group.label()));
     egui::Grid::new("course_detail_info").num_columns(2).show(ui, |ui| {
-        ui.label("Profesor");       ui.label(&course.teacher_name);                                   ui.end_row();
-        ui.label("Capacidad");      ui.label(course.capacity.to_string());                            ui.end_row();
-        ui.label("Precio mensual"); ui.label(format!("${}", format_price(course.price_cents)));       ui.end_row();
-        ui.label("Precio clase");   ui.label(format!("${}", format_price(course.class_price_cents))); ui.end_row();
+        ui.label("Capacidad");      ui.label(course.capacity.to_string());                                ui.end_row();
+        ui.label("Precio mensual"); ui.label(format_price(course.month_price_cents));                     ui.end_row();
+        ui.label("Precio clase");   ui.label(format_price(course.class_price_cents));                     ui.end_row();
         if let Some(n) = &course.notes {
             ui.label("Notas"); ui.label(n); ui.end_row();
         }
+        ui.label("Creado");  ui.label(crate::presentation::fmt_dt(course.created_at)); ui.end_row();
+        ui.label("Editado"); ui.label(crate::presentation::fmt_dt(course.updated_at)); ui.end_row();
     });
     ui.add_space(4.0);
     ui.separator();
