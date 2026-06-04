@@ -9,6 +9,7 @@ use crate::domain::{
         email::Email,
         first_name::FirstName,
         last_name::LastName,
+        notes::Notes,
         phone::Phone,
     },
     teacher::{
@@ -36,18 +37,19 @@ fn pg_err(e: postgres::Error) -> TeacherRepoError {
 }
 
 fn row_to_teacher(row: &Row) -> Result<Teacher, TeacherRepoError> {
-    let id:         Uuid           = row.get("id");
-    let first_name: String         = row.get("first_name");
-    let last_name:  String         = row.get("last_name");
-    let phone:      String         = row.get("phone");
-    let email:      String         = row.get("email");
-    let notes:      Option<String> = row.get("notes");
     let created_at: DateTime<Utc>  = row.get("created_at");
+    let email:      String         = row.get("email");
+    let first_name: String         = row.get("first_name");
+    let id:         Uuid           = row.get("id");
+    let last_name:  String         = row.get("last_name");
+    let notes:      Option<String> = row.get("notes");
+    let phone:      String         = row.get("phone");
     let updated_at: DateTime<Utc>  = row.get("updated_at");
 
     let email      = Email::new(email).map_err(|e| TeacherRepoError::Database(e.to_string()))?;
     let first_name = FirstName::new(first_name).map_err(|e| TeacherRepoError::Database(e.to_string()))?;
     let last_name  = LastName::new(last_name).map_err(|e| TeacherRepoError::Database(e.to_string()))?;
+    let notes      = notes.map(|s| Notes::new(s).map_err(|e| TeacherRepoError::Database(e.to_string()))).transpose()?;
     let phone      = Phone::new(phone).map_err(|e| TeacherRepoError::Database(e.to_string()))?;
 
     Ok(Teacher::reconstitute(created_at, email, first_name, id, last_name, notes, phone, updated_at))
@@ -64,10 +66,10 @@ impl TeacherRepo for TeacherPgRepo {
                  VALUES ($1, $2, $3, $4, $5, $6)",
                 &[
                     &teacher.id(),
-                    &teacher.first_name().value(),
-                    &teacher.last_name().value(),
-                    &teacher.phone().value(),
-                    &teacher.email().value(),
+                    &teacher.first_name(),
+                    &teacher.last_name(),
+                    &teacher.phone(),
+                    &teacher.email(),
                     &notes,
                 ],
             )
@@ -91,7 +93,7 @@ impl TeacherRepo for TeacherPgRepo {
             .unwrap()
             .query(
                 "SELECT id, first_name, last_name, phone, email, notes, created_at, updated_at
-                 FROM teachers ORDER BY last_name, first_name",
+                 FROM teachers ORDER BY first_name, last_name",
                 &[],
             )
             .map_err(pg_err)?;
@@ -107,7 +109,7 @@ impl TeacherRepo for TeacherPgRepo {
                  FROM teachers WHERE id = $1",
                 &[&id],
             )
-            .map_err(|e| TeacherRepoError::Database(e.to_string()))?
+            .map_err(pg_err)?
             .ok_or(TeacherRepoError::NotFound(id))?;
         row_to_teacher(&row)
     }
@@ -122,10 +124,10 @@ impl TeacherRepo for TeacherPgRepo {
                  SET first_name = $1, last_name = $2, phone = $3, email = $4, notes = $5
                  WHERE id = $6",
                 &[
-                    &teacher.first_name().value(),
-                    &teacher.last_name().value(),
-                    &teacher.phone().value(),
-                    &teacher.email().value(),
+                    &teacher.first_name(),
+                    &teacher.last_name(),
+                    &teacher.phone(),
+                    &teacher.email(),
                     &notes,
                     &teacher.id(),
                 ],

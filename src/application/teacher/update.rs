@@ -9,6 +9,7 @@ use crate::{
             email::Email,
             first_name::FirstName,
             last_name::LastName,
+            notes::Notes,
             phone::Phone,
         },
         teacher::repository::TeacherRepo,
@@ -38,8 +39,9 @@ impl TeacherUpdateUseCase {
         let email      = Email::new(input.email)?;
         let first_name = FirstName::new(input.first_name)?;
         let last_name  = LastName::new(input.last_name)?;
+        let notes      = input.notes.map(Notes::new).transpose()?;
         let phone      = Phone::new(input.phone)?;
-        let updated    = teacher.update(email, first_name, last_name, input.notes, phone);
+        let updated    = teacher.update(email, first_name, last_name, notes, phone);
         self.teacher_repo.update(&updated)?;
         log::info!("[teacher] updated: id={}", input.id);
         Ok(())

@@ -1,17 +1,17 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use eframe::egui;
-use postgres::Client;
 
 use crate::application::teacher::{
     create::{TeacherCreateInput, TeacherCreateUseCase},
     update::{TeacherUpdateInput, TeacherUpdateUseCase},
 };
+use crate::domain::teacher::repository::TeacherRepo;
 use crate::presentation::{push_error, push_success, Notifications};
 
-use super::{Mode, TeachersState, clear_form, make_repo};
+use super::{Mode, TeachersState, clear_form};
 
-pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut TeachersState, notifs: &mut Notifications) {
+pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn TeacherRepo>, state: &mut TeachersState, notifs: &mut Notifications) {
     let title = if state.mode == Mode::Create { "Nuevo Profesor" } else { "Editar Profesor" };
 
     ui.horizontal(|ui| {
@@ -40,14 +40,14 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Teachers
         let notes = if state.notes.trim().is_empty() { None } else { Some(state.notes.clone()) };
 
         let result = match state.mode {
-            Mode::Create => TeacherCreateUseCase::new(make_repo(client)).execute(TeacherCreateInput {
+            Mode::Create => TeacherCreateUseCase::new(Arc::clone(repo)).execute(TeacherCreateInput {
                 email:      state.email.clone(),
                 first_name: state.first_name.clone(),
                 last_name:  state.last_name.clone(),
                 notes,
                 phone:      state.phone.clone(),
             }),
-            Mode::Edit => TeacherUpdateUseCase::new(make_repo(client)).execute(TeacherUpdateInput {
+            Mode::Edit => TeacherUpdateUseCase::new(Arc::clone(repo)).execute(TeacherUpdateInput {
                 id:         state.editing_id.unwrap(),
                 email:      state.email.clone(),
                 first_name: state.first_name.clone(),
