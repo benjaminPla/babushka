@@ -102,7 +102,6 @@ jobs:
             --title "${{ needs.prepare.outputs.tag }}" \
             --notes "**Windows**: click 'More info' → 'Run anyway' on first launch (unsigned binary).
 
-          First launch downloads the embedded database — internet required once." \
-            --prerelease
+          First launch downloads the embedded database — internet required once."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
