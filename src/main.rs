@@ -21,7 +21,7 @@ use log4rs::{
     config::{Appender, Config, Root},
     encode::pattern::PatternEncoder,
 };
-use postgresql_embedded::PostgreSQL;
+use postgresql_embedded::{PostgreSQL, SettingsBuilder, VersionReq};
 
 use app::{AppWrapper, InitResult, LoadingStatus, UpdateState};
 
@@ -98,7 +98,10 @@ fn main() {
         };
 
         set("Configurando base de datos…", 0.1);
-        let mut pg = PostgreSQL::default();
+        let settings = SettingsBuilder::new()
+            .version(VersionReq::parse("=17.5.0").unwrap())
+            .build();
+        let mut pg = PostgreSQL::new(settings);
         if let Err(e) = rt.block_on(pg.setup()) { fail(e.to_string()); return; }
 
         set("Arrancando base de datos…", 0.3);
