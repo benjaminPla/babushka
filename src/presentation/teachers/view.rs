@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::presentation::fmt_dt;
+use crate::presentation::{fmt_dt, section_header};
 
 use super::{Mode, TeachersState};
 
@@ -13,22 +13,31 @@ pub fn show(ui: &mut egui::Ui, state: &mut TeachersState) {
         return;
     };
 
-    ui.horizontal(|ui| {
-        if ui.button("← Volver").clicked() {
-            state.viewing_id = None;
-            state.mode       = Mode::List;
-        }
-        ui.heading(format!("{} {}", teacher.first_name, teacher.last_name));
-    });
+    if ui.button("<- Volver").clicked() {
+        state.viewing_id = None;
+        state.mode       = Mode::List;
+    }
     ui.separator();
 
-    egui::Grid::new("teacher_view").num_columns(2).show(ui, |ui| {
-        ui.label("Nombre");    ui.label(&teacher.first_name);                          ui.end_row();
-        ui.label("Apellido");  ui.label(&teacher.last_name);                           ui.end_row();
-        ui.label("Email");     ui.label(&teacher.email);                               ui.end_row();
-        ui.label("Teléfono");  ui.label(&teacher.phone);                               ui.end_row();
-        ui.label("Notas");     ui.label(teacher.notes.as_deref().unwrap_or("—"));      ui.end_row();
-        ui.label("Creado");    ui.label(fmt_dt(teacher.created_at));                   ui.end_row();
-        ui.label("Editado");   ui.label(fmt_dt(teacher.updated_at));                   ui.end_row();
+    section_header(ui, "Información");
+    ui.heading(format!("{} {}", teacher.first_name, teacher.last_name));
+    egui::Grid::new("teacher_view").num_columns(2).spacing([16.0, 2.0]).show(ui, |ui| {
+        ui.label(egui::RichText::new("Email").color(crate::theme::colors::TEXT_MUTED));
+        ui.label(&teacher.email);
+        ui.end_row();
+        ui.label(egui::RichText::new("Teléfono").color(crate::theme::colors::TEXT_MUTED));
+        ui.label(&teacher.phone);
+        ui.end_row();
+        if let Some(n) = &teacher.notes {
+            ui.label(egui::RichText::new("Notas").color(crate::theme::colors::TEXT_MUTED));
+            ui.label(n.as_str());
+            ui.end_row();
+        }
+        ui.label(egui::RichText::new("Creado").color(crate::theme::colors::TEXT_MUTED));
+        ui.label(fmt_dt(teacher.created_at));
+        ui.end_row();
+        ui.label(egui::RichText::new("Editado").color(crate::theme::colors::TEXT_MUTED));
+        ui.label(fmt_dt(teacher.updated_at));
+        ui.end_row();
     });
 }

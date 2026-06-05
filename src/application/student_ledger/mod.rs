@@ -85,7 +85,7 @@ impl StudentLedgerUseCase {
         raw.sort_by_key(|(dt, _)| *dt);
 
         let mut balance = 0i32;
-        let entries: Vec<LedgerEntry> = raw.into_iter().map(|(_, mut entry)| {
+        let mut entries: Vec<LedgerEntry> = raw.into_iter().map(|(_, mut entry)| {
             match entry.kind {
                 LedgerKind::Debt   => balance -= entry.amount_cents,
                 LedgerKind::Credit => balance += entry.amount_cents,
@@ -93,6 +93,8 @@ impl StudentLedgerUseCase {
             entry.running_balance = balance;
             entry
         }).collect();
+
+        entries.reverse();
 
         Ok((entries, balance))
     }

@@ -50,7 +50,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     }
 
     // ── Navigation ────────────────────────────────────────────────────────────
-    if ui.button("← Volver").clicked() {
+    if ui.button("<- Volver").clicked() {
         super::clear_detail_state(state);
         state.mode = Mode::List;
         return;
@@ -281,7 +281,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
             h.col(|ui| table::head(ui, "Descripción"));
             h.col(|ui| table::head(ui, "Monto"));
             h.col(|ui| table::head(ui, "Balance"));
-            h.col(|ui| table::head(ui, ""));
+            h.col(|ui| table::head(ui, "Acciones"));
         })
         .body(|mut body| {
             for entry in &state.ledger {

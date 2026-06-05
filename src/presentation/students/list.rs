@@ -40,12 +40,12 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn StudentRepo>, state: &mut Students
         .collect();
 
     table::builder(ui)
-        .column(Column::auto().at_least(90.0))
-        .column(Column::auto().at_least(90.0))
-        .column(Column::remainder().at_least(120.0))
-        .column(Column::auto().at_least(110.0))
-        .column(Column::auto().at_least(60.0))
-        .column(Column::auto())
+        .column(Column::remainder().at_least(80.0))
+        .column(Column::auto().at_least(80.0))
+        .column(Column::auto().at_least(100.0))
+        .column(Column::exact(110.0))
+        .column(Column::exact(60.0))
+        .column(Column::exact(160.0))
         .header(table::header_height(), |mut h| {
             h.col(|ui| table::head_filter(ui, "Nombre",   &mut state.filter_first_name));
             h.col(|ui| table::head_filter(ui, "Apellido", &mut state.filter_last_name));
