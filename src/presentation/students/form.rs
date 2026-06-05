@@ -17,7 +17,7 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn StudentRepo>, state: &mut Students
     let title = if state.mode == Mode::Create { "Nuevo Alumno" } else { "Editar Alumno" };
 
     ui.horizontal(|ui| {
-        if ui.button("← Volver").clicked() {
+        if ui.button("<- Volver").clicked() {
             state.mode = Mode::List;
             clear_form(state);
         }

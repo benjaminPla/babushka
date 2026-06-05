@@ -13,15 +13,22 @@ pub fn show(ui: &mut egui::Ui, state: &mut TeachersState) {
         return;
     };
 
+    // ── Navigation ────────────────────────────────────────────────────────────
     if ui.button("<- Volver").clicked() {
         state.viewing_id = None;
         state.mode       = Mode::List;
     }
     ui.separator();
 
+    // ── Information ──────────────────────────────────────────────────────────
     section_header(ui, "Información");
-    ui.heading(format!("{} {}", teacher.first_name, teacher.last_name));
     egui::Grid::new("teacher_view").num_columns(2).spacing([16.0, 2.0]).show(ui, |ui| {
+        ui.label(egui::RichText::new("Nombre").color(crate::theme::colors::TEXT_MUTED));
+        ui.label(&teacher.first_name);
+        ui.end_row();
+        ui.label(egui::RichText::new("Apellido").color(crate::theme::colors::TEXT_MUTED));
+        ui.label(&teacher.last_name);
+        ui.end_row();
         ui.label(egui::RichText::new("Email").color(crate::theme::colors::TEXT_MUTED));
         ui.label(&teacher.email);
         ui.end_row();

@@ -11,28 +11,40 @@ use crate::{
         delete::CoursePeriodDeleteUseCase,
         get_by_course::CoursePeriodGetByCourseUseCase,
     },
-    presentation::{confirm_delete_modal, push_error, push_success, section_header, Notifications},
     presentation::table::{self, Column},
+    presentation::{confirm_delete_modal, push_error, push_success, section_header, Notifications},
 };
 
-use super::{CoursesState, Mode, format_price, make_course_period_repo};
+use super::{format_price, make_course_period_repo, CoursesState, Mode};
 
-pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesState, notifs: &mut Notifications) {
+pub fn show(
+    ui: &mut egui::Ui,
+    client: &Arc<Mutex<Client>>,
+    state: &mut CoursesState,
+    notifs: &mut Notifications,
+) {
     let course = match &state.selected_course {
         Some(c) => c.clone(),
-        None    => { state.mode = Mode::List; return; }
+        None => {
+            state.mode = Mode::List;
+            return;
+        }
     };
 
     if state.needs_reload_periods {
         state.needs_reload_periods = false;
-        match CoursePeriodGetByCourseUseCase::new(make_course_period_repo(client)).execute(course.id) {
-            Ok(periods) => { state.periods = periods; }
-            Err(e)      => push_error(notifs, e.to_string()),
+        match CoursePeriodGetByCourseUseCase::new(make_course_period_repo(client))
+            .execute(course.id)
+        {
+            Ok(periods) => {
+                state.periods = periods;
+            }
+            Err(e) => push_error(notifs, e.to_string()),
         }
     }
 
     // ── Header ────────────────────────────────────────────────────────────────
-    if ui.button("← Volver").clicked() {
+    if ui.button("<- Volver").clicked() {
         state.mode             = Mode::List;
         state.selected_course  = None;
         state.periods          = Vec::new();
@@ -41,19 +53,38 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
     }
     ui.separator();
 
-    // ── Info section ──────────────────────────────────────────────────────────
+    // ── Information ──────────────────────────────────────────────────────────
     section_header(ui, "Información");
-    ui.heading(format!("{} — {}", course.name, course.age_group.label()));
-    egui::Grid::new("course_detail_info").num_columns(2).show(ui, |ui| {
-        ui.label("Capacidad");      ui.label(course.capacity.to_string());                                ui.end_row();
-        ui.label("Precio mensual"); ui.label(format_price(course.month_price_cents));                     ui.end_row();
-        ui.label("Precio clase");   ui.label(format_price(course.class_price_cents));                     ui.end_row();
-        if let Some(n) = &course.notes {
-            ui.label("Notas"); ui.label(n); ui.end_row();
-        }
-        ui.label("Creado");  ui.label(crate::presentation::fmt_dt(course.created_at)); ui.end_row();
-        ui.label("Editado"); ui.label(crate::presentation::fmt_dt(course.updated_at)); ui.end_row();
-    });
+    egui::Grid::new("course_detail_info")
+        .num_columns(2)
+        .show(ui, |ui| {
+            ui.label("Nombre");
+            ui.label(course.name);
+            ui.end_row();
+            ui.label("Grupo");
+            ui.label(course.age_group.label());
+            ui.end_row();
+            ui.label("Capacidad");
+            ui.label(course.capacity.to_string());
+            ui.end_row();
+            ui.label("Precio mensual");
+            ui.label(format_price(course.month_price_cents));
+            ui.end_row();
+            ui.label("Precio clase");
+            ui.label(format_price(course.class_price_cents));
+            ui.end_row();
+            if let Some(n) = &course.notes {
+                ui.label("Notas");
+                ui.label(n);
+                ui.end_row();
+            }
+            ui.label("Creado");
+            ui.label(crate::presentation::fmt_dt(course.created_at));
+            ui.end_row();
+            ui.label("Editado");
+            ui.label(crate::presentation::fmt_dt(course.updated_at));
+            ui.end_row();
+        });
     ui.add_space(4.0);
     ui.separator();
 
@@ -77,21 +108,28 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                     }
                 });
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Cancelar").clicked() { state.show_period_form = false; }
+                if ui.button("Cancelar").clicked() {
+                    state.show_period_form = false;
+                }
                 if ui.button("Guardar").clicked() {
                     let y = state.period_year;
                     let m = state.period_month;
                     let start_date = NaiveDate::from_ymd_opt(y, m, 1).unwrap();
-                    let end_date   = if m == 12 {
+                    let end_date = if m == 12 {
                         NaiveDate::from_ymd_opt(y + 1, 1, 1).unwrap() - Duration::days(1)
                     } else {
                         NaiveDate::from_ymd_opt(y, m + 1, 1).unwrap() - Duration::days(1)
                     };
-                    match CoursePeriodCreateUseCase::new(make_course_period_repo(client))
-                        .execute(CoursePeriodCreateInput { course_id: course.id, start_date, end_date }) {
+                    match CoursePeriodCreateUseCase::new(make_course_period_repo(client)).execute(
+                        CoursePeriodCreateInput {
+                            course_id: course.id,
+                            start_date,
+                            end_date,
+                        },
+                    ) {
                         Ok(_) => {
                             push_success(notifs, "Período creado");
-                            state.show_period_form     = false;
+                            state.show_period_form = false;
                             state.needs_reload_periods = true;
                         }
                         Err(e) => push_error(notifs, e.to_string()),
@@ -104,7 +142,9 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
         ui.horizontal(|ui| {
             section_header(ui, "Períodos");
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("+ Nuevo período").clicked() { state.show_period_form = true; }
+                if ui.button("+ Nuevo período").clicked() {
+                    state.show_period_form = true;
+                }
             });
         });
     }
@@ -113,12 +153,12 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
     let mut delete_id: Option<Uuid> = None;
 
     table::builder(ui)
-        .column(Column::remainder().at_least(100.0))
-        .column(Column::exact(90.0))
-        .column(Column::exact(90.0))
-        .column(Column::exact(70.0))
-        .column(Column::exact(80.0))
-        .column(Column::auto().at_least(60.0))
+        .column(Column::remainder())
+        .column(Column::auto())
+        .column(Column::auto())
+        .column(Column::auto())
+        .column(Column::auto())
+        .column(Column::auto())
         .header(table::header_height(), |mut h| {
             h.col(|ui| table::head(ui, "Etiqueta"));
             h.col(|ui| table::head(ui, "Inicio"));
@@ -130,10 +170,18 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
         .body(|mut body| {
             for p in &state.periods {
                 body.row(table::row_height(), |mut row| {
-                    row.col(|ui| { ui.label(&p.label); });
-                    row.col(|ui| { ui.label(p.start_date.format("%d/%m/%Y").to_string()); });
-                    row.col(|ui| { ui.label(p.end_date.format("%d/%m/%Y").to_string()); });
-                    row.col(|ui| { ui.label(p.enrolled.to_string()); });
+                    row.col(|ui| {
+                        ui.label(&p.label);
+                    });
+                    row.col(|ui| {
+                        ui.label(p.start_date.format("%d/%m/%Y").to_string());
+                    });
+                    row.col(|ui| {
+                        ui.label(p.end_date.format("%d/%m/%Y").to_string());
+                    });
+                    row.col(|ui| {
+                        ui.label(p.enrolled.to_string());
+                    });
                     row.col(|ui| {
                         let today = chrono::Local::now().date_naive();
                         if p.start_date > today {
@@ -145,24 +193,40 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut CoursesS
                         }
                     });
                     row.col(|ui| {
-                        if ui.small_button("🗑").clicked() { delete_id = Some(p.id); }
+                        if ui.small_button("🗑").clicked() {
+                            delete_id = Some(p.id);
+                        }
                     });
                 });
             }
         });
 
-    if let Some(id) = delete_id { state.confirm_delete_period = Some(id); }
+    if let Some(id) = delete_id {
+        state.confirm_delete_period = Some(id);
+    }
 
     if let Some(id) = confirm_delete_modal(ui.ctx(), &mut state.confirm_delete_period) {
         match CoursePeriodDeleteUseCase::new(make_course_period_repo(client)).execute(id) {
-            Ok(_)  => { push_success(notifs, "Período eliminado"); state.needs_reload_periods = true; }
+            Ok(_) => {
+                push_success(notifs, "Período eliminado");
+                state.needs_reload_periods = true;
+            }
             Err(e) => push_error(notifs, e.to_string()),
         }
     }
 }
 
 const MONTHS: [&str; 12] = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
 ];
-
