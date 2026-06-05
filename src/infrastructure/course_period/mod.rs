@@ -18,11 +18,17 @@ impl CoursePeriodPgRepo {
 }
 
 fn pg_err(e: postgres::Error) -> CoursePeriodRepoError {
-    let msg = e
-        .as_db_error()
-        .map(|db| format!("{} (code={})", db.message(), db.code().code()))
-        .unwrap_or_else(|| format!("{e:?}"));
-    CoursePeriodRepoError::Database(msg)
+    if let Some(db) = e.as_db_error() {
+        if db.code().code() == "23505" {
+            let msg = match db.constraint().unwrap_or("") {
+                "course_periods_unique" => "Ya existe un período con esa fecha de inicio para este curso",
+                _                      => "Ya existe ese período",
+            };
+            return CoursePeriodRepoError::Duplicate(msg.into());
+        }
+        return CoursePeriodRepoError::Database(format!("{} (code={})", db.message(), db.code().code()));
+    }
+    CoursePeriodRepoError::Database(format!("{e:?}"))
 }
 
 fn row_to_period(row: &Row) -> Result<CoursePeriod, CoursePeriodRepoError> {

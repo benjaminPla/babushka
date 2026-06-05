@@ -13,6 +13,8 @@ pub trait CoursePeriodRepo: Send + Sync {
 pub enum CoursePeriodRepoError {
     #[error("database error: {0}")]
     Database(String),
+    #[error("{0}")]
+    Duplicate(String),
     #[error("período no encontrado: {0}")]
     NotFound(Uuid),
 }

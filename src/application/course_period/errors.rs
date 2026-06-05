@@ -13,6 +13,7 @@ pub enum CoursePeriodAppError {
 impl From<CoursePeriodRepoError> for CoursePeriodAppError {
     fn from(e: CoursePeriodRepoError) -> Self {
         match e {
+            CoursePeriodRepoError::Duplicate(msg) => Self::Validation(msg),
             CoursePeriodRepoError::Database(msg) => {
                 log::error!("[course_period] repo error: {msg}");
                 Self::Database
