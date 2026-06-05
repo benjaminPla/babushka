@@ -90,180 +90,202 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     ui.add_space(4.0);
     ui.separator();
 
-    // ── Saldo section header / forms ─────────────────────────────────────────
-    if state.show_enroll_form {
-        ui.horizontal(|ui| {
-            ui.label("Curso");
-            egui::ComboBox::from_id_salt("enroll_course")
-                .selected_text(
-                    state.enroll_sel_course
-                        .and_then(|id| state.enroll_courses.iter().find(|c| c.id == id))
-                        .map(|c| c.name.clone())
-                        .unwrap_or_else(|| "Seleccionar...".into()),
-                )
-                .show_ui(ui, |ui| {
-                    ui.add(egui::TextEdit::singleline(&mut state.enroll_course_filter).id(egui::Id::new("enroll_course_filter")));
-                    let cf = state.enroll_course_filter.to_lowercase();
-                    let courses: Vec<_> = state.enroll_courses.iter()
-                        .filter(|c| cf.is_empty() || c.name.to_lowercase().contains(&cf))
-                        .cloned()
-                        .collect();
-                    for c in &courses {
-                        if ui.selectable_value(&mut state.enroll_sel_course, Some(c.id), &c.name).clicked() {
-                            if let Ok(ps) = CoursePeriodGetByCourseUseCase::new(make_course_period_repo(client)).execute(c.id) {
-                                state.enroll_periods       = ps;
-                                state.enroll_sel_period    = None;
-                                state.enroll_period_filter = String::new();
-                            }
-                        }
-                    }
-                });
-
-            ui.label("Período");
-            egui::ComboBox::from_id_salt("enroll_period")
-                .selected_text(
-                    state.enroll_sel_period
-                        .and_then(|id| state.enroll_periods.iter().find(|p| p.id == id))
-                        .map(|p| p.label.clone())
-                        .unwrap_or_else(|| "Seleccionar...".into()),
-                )
-                .show_ui(ui, |ui| {
-                    ui.add(egui::TextEdit::singleline(&mut state.enroll_period_filter).id(egui::Id::new("enroll_period_filter")));
-                    let pf = state.enroll_period_filter.to_lowercase();
-                    let periods: Vec<_> = state.enroll_periods.iter()
-                        .filter(|p| pf.is_empty() || p.label.to_lowercase().contains(&pf))
-                        .cloned()
-                        .collect();
-                    for p in &periods {
-                        ui.selectable_value(&mut state.enroll_sel_period, Some(p.id), &p.label);
-                    }
-                });
-
-            if let Some(price) = state.enroll_sel_course
-                .and_then(|id| state.enroll_courses.iter().find(|c| c.id == id))
-                .map(|c| c.month_price_cents)
-            {
-                ui.colored_label(crate::theme::colors::TEXT_MUTED, fmt_ars(price));
+    // ── Saldo section header (always visible) ─────────────────────────────────
+    ui.horizontal(|ui| {
+        section_header(ui, "Saldo");
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if ui.button("+ Pago").clicked() {
+                state.payment_amount    = String::new();
+                state.payment_method    = "cash".into();
+                state.payment_paid_at   = today();
+                state.payment_notes     = String::new();
+                state.show_payment_form = true;
             }
-
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Cancelar").clicked() {
-                    state.show_enroll_form     = false;
+            if ui.button("+ Inscribir").clicked() {
+                if let Ok(courses) = CourseGetAllUseCase::new(make_course_repo(client)).execute() {
+                    state.enroll_courses       = courses.into_iter().filter(|c| c.age_group == student.age_group).collect();
                     state.enroll_sel_course    = None;
                     state.enroll_course_filter = String::new();
                     state.enroll_sel_period    = None;
                     state.enroll_period_filter = String::new();
                     state.enroll_periods       = Vec::new();
+                    state.show_enroll_form     = true;
                 }
-                if ui.button("Inscribir").clicked() {
-                    match state.enroll_sel_period {
-                        Some(period_id) => {
-                            match EnrollmentCreateUseCase::new(
-                                make_enrollment_repo(client),
-                                make_course_period_repo(client),
-                                make_course_repo(client),
-                            ).execute(EnrollmentCreateInput { student_id: student.id, course_period_id: period_id }) {
-                                Ok(_) => {
-                                    push_success(notifs, "Alumno inscrito");
-                                    state.show_enroll_form     = false;
-                                    state.enroll_sel_course    = None;
-                                    state.enroll_course_filter = String::new();
+            }
+            let (color, sign) = if state.balance_cents >= 0 {
+                (crate::theme::colors::SUCCESS, "+")
+            } else {
+                (crate::theme::colors::ERROR, "")
+            };
+            ui.colored_label(color, format!("{sign}{}", fmt_ars(state.balance_cents)));
+        });
+    });
+
+    // ── Enroll modal ──────────────────────────────────────────────────────────
+    if state.show_enroll_form {
+        egui::Window::new("Inscribir alumno")
+            .collapsible(false)
+            .resizable(false)
+            .auto_sized()
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ui.ctx(), |ui| {
+                ui.label("Curso");
+                egui::ComboBox::from_id_salt("enroll_course")
+                    .width(280.0)
+                    .selected_text(
+                        state.enroll_sel_course
+                            .and_then(|id| state.enroll_courses.iter().find(|c| c.id == id))
+                            .map(|c| c.name.clone())
+                            .unwrap_or_else(|| "Seleccionar...".into()),
+                    )
+                    .show_ui(ui, |ui| {
+                        ui.add(egui::TextEdit::singleline(&mut state.enroll_course_filter)
+                            .id(egui::Id::new("enroll_course_filter")));
+                        let cf = state.enroll_course_filter.to_lowercase();
+                        let courses: Vec<_> = state.enroll_courses.iter()
+                            .filter(|c| cf.is_empty() || c.name.to_lowercase().contains(&cf))
+                            .cloned()
+                            .collect();
+                        for c in &courses {
+                            if ui.selectable_value(&mut state.enroll_sel_course, Some(c.id), &c.name).clicked() {
+                                if let Ok(ps) = CoursePeriodGetByCourseUseCase::new(make_course_period_repo(client)).execute(c.id) {
+                                    state.enroll_periods       = ps;
                                     state.enroll_sel_period    = None;
                                     state.enroll_period_filter = String::new();
-                                    state.enroll_periods       = Vec::new();
-                                    state.needs_reload_ledger  = true;
+                                    state.enroll_course_filter = String::new();
                                 }
-                                Err(e) => push_error(notifs, e.to_string()),
                             }
                         }
-                        None => push_error(notifs, "Seleccionar un período"),
-                    }
-                }
-            });
-        });
-        ui.separator();
-    } else if state.show_payment_form {
-        ui.horizontal(|ui| {
-            ui.label("Monto");
-            ui.add(egui::TextEdit::singleline(&mut state.payment_amount).desired_width(80.0));
-
-            ui.label("Método");
-            egui::ComboBox::from_id_salt("pay_method")
-                .selected_text(method_label(&state.payment_method))
-                .show_ui(ui, |ui| {
-                    for (val, label) in PAYMENT_METHODS {
-                        ui.selectable_value(&mut state.payment_method, val.to_string(), *label);
-                    }
-                });
-
-            ui.label("Fecha");
-            date_selector(ui, "pay_date", &mut state.payment_paid_at);
-
-            ui.label("Notas");
-            ui.add(egui::TextEdit::singleline(&mut state.payment_notes).desired_width(120.0));
-
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("Cancelar").clicked() {
-                    state.show_payment_form = false;
-                    state.payment_amount    = String::new();
-                }
-                if ui.button("Guardar").clicked() {
-                    let amount_cents = match parse_cents(&state.payment_amount) {
-                        Some(v) => v,
-                        None    => { push_error(notifs, "Monto inválido"); return; }
-                    };
-                    let paid_at = naive_date_to_utc(state.payment_paid_at);
-                    let notes   = if state.payment_notes.trim().is_empty() { None } else { Some(state.payment_notes.trim().to_owned()) };
-                    match PaymentCreateUseCase::new(make_payment_repo(client))
-                        .execute(PaymentCreateInput {
-                            student_id:     student.id,
-                            amount_cents,
-                            payment_method: state.payment_method.clone(),
-                            paid_at,
-                            notes,
-                        }) {
-                        Ok(_) => {
-                            push_success(notifs, "Pago registrado");
-                            state.show_payment_form   = false;
-                            state.payment_amount      = String::new();
-                            state.needs_reload_ledger = true;
+                    });
+                ui.add_space(4.0);
+                ui.label("Período");
+                egui::ComboBox::from_id_salt("enroll_period")
+                    .width(280.0)
+                    .selected_text(
+                        state.enroll_sel_period
+                            .and_then(|id| state.enroll_periods.iter().find(|p| p.id == id))
+                            .map(|p| p.label.clone())
+                            .unwrap_or_else(|| "Seleccionar...".into()),
+                    )
+                    .show_ui(ui, |ui| {
+                        ui.add(egui::TextEdit::singleline(&mut state.enroll_period_filter)
+                            .id(egui::Id::new("enroll_period_filter")));
+                        let pf = state.enroll_period_filter.to_lowercase();
+                        let periods: Vec<_> = state.enroll_periods.iter()
+                            .filter(|p| pf.is_empty() || p.label.to_lowercase().contains(&pf))
+                            .cloned()
+                            .collect();
+                        for p in &periods {
+                            ui.selectable_value(&mut state.enroll_sel_period, Some(p.id), &p.label);
                         }
-                        Err(e) => push_error(notifs, e.to_string()),
-                    }
+                    });
+                if let Some(price) = state.enroll_sel_course
+                    .and_then(|id| state.enroll_courses.iter().find(|c| c.id == id))
+                    .map(|c| c.month_price_cents)
+                {
+                    ui.add_space(4.0);
+                    ui.colored_label(crate::theme::colors::TEXT_MUTED, format!("Precio mensual: {}", fmt_ars(price)));
                 }
-            });
-        });
-        ui.separator();
-    } else {
-        ui.horizontal(|ui| {
-            section_header(ui, "Saldo");
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("+ Pago").clicked() {
-                    state.payment_amount  = String::new();
-                    state.payment_method  = "cash".into();
-                    state.payment_paid_at = today();
-                    state.payment_notes   = String::new();
-                    state.show_payment_form = true;
-                }
-                if ui.button("+ Inscribir").clicked() {
-                    if let Ok(courses) = CourseGetAllUseCase::new(make_course_repo(client)).execute() {
-                        state.enroll_courses       = courses.into_iter().filter(|c| c.age_group == student.age_group).collect();
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Cancelar").clicked() {
+                        state.show_enroll_form     = false;
                         state.enroll_sel_course    = None;
                         state.enroll_course_filter = String::new();
                         state.enroll_sel_period    = None;
                         state.enroll_period_filter = String::new();
                         state.enroll_periods       = Vec::new();
-                        state.show_enroll_form     = true;
                     }
-                }
-                let (color, sign) = if state.balance_cents >= 0 {
-                    (crate::theme::colors::SUCCESS, "+")
-                } else {
-                    (crate::theme::colors::ERROR, "")
-                };
-                ui.colored_label(color, format!("{sign}{}", fmt_ars(state.balance_cents)));
+                    if ui.button("Inscribir").clicked() {
+                        match state.enroll_sel_period {
+                            Some(period_id) => {
+                                match EnrollmentCreateUseCase::new(
+                                    make_enrollment_repo(client),
+                                    make_course_period_repo(client),
+                                    make_course_repo(client),
+                                ).execute(EnrollmentCreateInput { student_id: student.id, course_period_id: period_id }) {
+                                    Ok(_) => {
+                                        push_success(notifs, "Alumno inscrito");
+                                        state.show_enroll_form     = false;
+                                        state.enroll_sel_course    = None;
+                                        state.enroll_course_filter = String::new();
+                                        state.enroll_sel_period    = None;
+                                        state.enroll_period_filter = String::new();
+                                        state.enroll_periods       = Vec::new();
+                                        state.needs_reload_ledger  = true;
+                                    }
+                                    Err(e) => push_error(notifs, e.to_string()),
+                                }
+                            }
+                            None => push_error(notifs, "Seleccionar un período"),
+                        }
+                    }
+                });
             });
-        });
+    }
+
+    // ── Payment modal ─────────────────────────────────────────────────────────
+    if state.show_payment_form {
+        egui::Window::new("Registrar pago")
+            .collapsible(false)
+            .resizable(false)
+            .auto_sized()
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ui.ctx(), |ui| {
+                ui.label("Monto");
+                ui.add(egui::TextEdit::singleline(&mut state.payment_amount).desired_width(280.0));
+                ui.add_space(4.0);
+                ui.label("Método");
+                egui::ComboBox::from_id_salt("pay_method")
+                    .width(280.0)
+                    .selected_text(method_label(&state.payment_method))
+                    .show_ui(ui, |ui| {
+                        for (val, label) in PAYMENT_METHODS {
+                            ui.selectable_value(&mut state.payment_method, val.to_string(), *label);
+                        }
+                    });
+                ui.add_space(4.0);
+                ui.label("Fecha");
+                date_selector(ui, "pay_date", &mut state.payment_paid_at);
+                ui.add_space(4.0);
+                ui.label("Notas");
+                ui.add(
+                    egui::TextEdit::multiline(&mut state.payment_notes)
+                        .desired_width(280.0)
+                        .desired_rows(4),
+                );
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Cancelar").clicked() {
+                        state.show_payment_form = false;
+                        state.payment_amount    = String::new();
+                    }
+                    if ui.button("Guardar").clicked() {
+                        let amount_cents = match parse_cents(&state.payment_amount) {
+                            Some(v) => v,
+                            None    => { push_error(notifs, "Monto inválido"); return; }
+                        };
+                        let paid_at = naive_date_to_utc(state.payment_paid_at);
+                        let notes   = if state.payment_notes.trim().is_empty() { None } else { Some(state.payment_notes.trim().to_owned()) };
+                        match PaymentCreateUseCase::new(make_payment_repo(client))
+                            .execute(PaymentCreateInput {
+                                student_id:     student.id,
+                                amount_cents,
+                                payment_method: state.payment_method.clone(),
+                                paid_at,
+                                notes,
+                            }) {
+                            Ok(_) => {
+                                push_success(notifs, "Pago registrado");
+                                state.show_payment_form   = false;
+                                state.payment_amount      = String::new();
+                                state.needs_reload_ledger = true;
+                            }
+                            Err(e) => push_error(notifs, e.to_string()),
+                        }
+                    }
+                });
+            });
     }
 
     // ── Ledger table ──────────────────────────────────────────────────────────
