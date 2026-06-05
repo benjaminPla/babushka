@@ -23,22 +23,20 @@ pub fn head(ui: &mut egui::Ui, label: &str) {
 
 pub fn head_filter(ui: &mut egui::Ui, placeholder: &str, filter: &mut String) {
     ui.painter().rect_filled(ui.max_rect(), egui::CornerRadius::ZERO, colors::HEADER_BG);
-    let avail = ui.available_width();
-    let text_w = if filter.is_empty() { avail } else { (avail - 20.0).max(20.0) };
-    ui.horizontal(|ui| {
-        let hint = egui::RichText::new(placeholder)
-            .size(sizes::HEAD_FONT)
-            .color(colors::TEXT_SECONDARY)
-            .strong();
-        ui.add(
-            egui::TextEdit::singleline(filter)
-                .hint_text(hint)
-                .desired_width(text_w)
-                .font(egui::FontId::proportional(sizes::HEAD_FONT)),
-        );
+    let hint = egui::RichText::new(placeholder)
+        .size(sizes::HEAD_FONT)
+        .color(colors::TEXT_SECONDARY)
+        .strong();
+    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
         if !filter.is_empty() {
             if ui.small_button("×").clicked() { filter.clear(); }
         }
+        ui.add(
+            egui::TextEdit::singleline(filter)
+                .hint_text(hint)
+                .desired_width(f32::INFINITY)
+                .font(egui::FontId::proportional(sizes::HEAD_FONT)),
+        );
     });
 }
 
