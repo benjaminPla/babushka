@@ -113,8 +113,15 @@ fn main() {
         };
 
         set("Configurando base de datos…", 0.1);
+        let data_dir = dirs::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("babushka")
+            .join("data");
         let settings = SettingsBuilder::new()
             .version(VersionReq::parse("=17.5.0").unwrap())
+            .data_dir(data_dir)
+            .temporary(false)
+            .password("babushka")
             .build();
         let mut pg = PostgreSQL::new(settings);
         if let Err(e) = rt.block_on(pg.setup()) { fail(e.to_string()); return; }
