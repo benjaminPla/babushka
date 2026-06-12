@@ -1,78 +1,16 @@
 pub mod courses;
+pub mod notifications;
 pub mod students;
 pub mod table;
 pub mod teachers;
 
-use std::time::{Duration, Instant};
+pub use notifications::{Notifications, push_error, push_success, render as render_notifications};
 
 use chrono::{Datelike, DateTime, FixedOffset, NaiveDate, Utc};
 use eframe::egui;
 use uuid::Uuid;
 
-// ── Notifications ────────────────────────────────────────────────────────────
-
-const TIMEOUT: Duration = Duration::from_secs(5);
-
-pub enum NotificationKind { Error, Success }
-
-pub struct Notification {
-    pub message: String,
-    pub kind:    NotificationKind,
-    born:        Instant,
-}
-
-pub type Notifications = Vec<Notification>;
-
-pub fn push_error(n: &mut Notifications, msg: impl Into<String>) {
-    n.push(Notification { message: msg.into(), kind: NotificationKind::Error, born: Instant::now() });
-}
-pub fn push_success(n: &mut Notifications, msg: impl Into<String>) {
-    n.push(Notification { message: msg.into(), kind: NotificationKind::Success, born: Instant::now() });
-}
-
-pub fn render_notifications(ui: &mut egui::Ui, notifs: &mut Notifications) {
-    notifs.retain(|n| n.born.elapsed() < TIMEOUT);
-    if notifs.is_empty() { return; }
-    ui.ctx().request_repaint_after(Duration::from_secs(1));
-
-    const W: f32 = 300.0;
-    let mut remove_idx = None;
-
-    egui::Area::new(egui::Id::new("notifications"))
-        .anchor(egui::Align2::RIGHT_BOTTOM, [-8.0, -8.0])
-        .order(egui::Order::Foreground)
-        .interactable(true)
-        .show(ui.ctx(), |ui| {
-            ui.set_min_width(W);
-            ui.set_max_width(W);
-            for (i, notif) in notifs.iter().enumerate() {
-                let bg = match notif.kind {
-                    NotificationKind::Error   => crate::theme::colors::NOTIF_ERROR,
-                    NotificationKind::Success => crate::theme::colors::NOTIF_SUCCESS,
-                };
-                egui::Frame::new()
-                    .fill(bg)
-                    .inner_margin(egui::Margin::symmetric(8, 5))
-                    .show(ui, |ui| {
-                        ui.set_min_width(W - 16.0);
-                        ui.horizontal(|ui| {
-                            ui.colored_label(crate::theme::colors::WHITE, &notif.message);
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                let btn = egui::Button::new(
-                                    egui::RichText::new("×").color(crate::theme::colors::WHITE).size(14.0)
-                                )
-                                .fill(egui::Color32::TRANSPARENT)
-                                .stroke(egui::Stroke::NONE);
-                                if ui.add(btn).clicked() { remove_idx = Some(i); }
-                            });
-                        });
-                    });
-                ui.add_space(2.0);
-            }
-        });
-
-    if let Some(i) = remove_idx { notifs.remove(i); }
-}
+use crate::theme::{colors, sizes};
 
 fn art() -> FixedOffset {
     FixedOffset::west_opt(3 * 3600).unwrap()
@@ -151,8 +89,8 @@ fn days_in_month(year: i32, month: u32) -> u32 {
 pub fn section_header(ui: &mut egui::Ui, label: &str) {
     ui.label(
         egui::RichText::new(label)
-            .size(crate::theme::sizes::FONT_SMALL)
-            .color(crate::theme::colors::TEXT_MUTED)
+            .size(crate::theme::sizes::FONT_SIZE_SMALL)
+            .color(crate::theme::colors::DARK_GRAY)
             .strong(),
     );
     ui.separator();
@@ -165,10 +103,16 @@ pub fn confirm_delete_modal(ctx: &egui::Context, pending: &mut Option<Uuid>) -> 
         .collapsible(false)
         .resizable(false)
         .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .frame(
+        egui::Frame::new()
+            .fill(colors::BLACK)
+            .stroke(egui::Stroke::new(sizes::STROKE_SMALL, colors::WHITE))
+            .inner_margin(egui::Margin::same(sizes::MARGIN_NORMAL))
+    )
         .show(ctx, |ui| {
             ui.label("¿Eliminar este registro?");
             ui.label("Esta acción no se puede deshacer.");
-            ui.add_space(8.0);
+            ui.add_space(sizes::SPACING_NORMAL);
             ui.horizontal(|ui| {
                 if ui.button("Cancelar").clicked()      { *pending = None; }
                 if ui.button("Sí, eliminar").clicked()  { confirmed = Some(id); *pending = None; }
