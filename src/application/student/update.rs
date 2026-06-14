@@ -2,19 +2,14 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::{
-    application::student::errors::StudentAppError,
-    domain::{
-        shared::value_objects::{
-            email::Email,
-            first_name::FirstName,
-            last_name::LastName,
-            notes::Notes,
-            phone::Phone,
-        },
-        student::{repository::StudentRepo, AgeGroup},
-    },
-};
+use crate::application::student::errors::StudentAppError;
+use crate::domain::shared::value_objects::email::Email;
+use crate::domain::shared::value_objects::first_name::FirstName;
+use crate::domain::shared::value_objects::last_name::LastName;
+use crate::domain::shared::value_objects::notes::Notes;
+use crate::domain::shared::value_objects::phone::Phone;
+use crate::domain::student::repository::StudentRepo;
+use crate::domain::student::AgeGroup;
 
 pub struct StudentUpdateInput {
     pub id:         Uuid,

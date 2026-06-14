@@ -1,9 +1,8 @@
 use std::sync::Arc;
 
-use crate::{
-    application::teacher::{dto::TeacherDto, errors::TeacherAppError},
-    domain::teacher::repository::TeacherRepo,
-};
+use crate::application::teacher::dto::TeacherDto;
+use crate::application::teacher::errors::TeacherAppError;
+use crate::domain::teacher::repository::TeacherRepo;
 
 pub struct TeacherGetAllUseCase {
     teacher_repo: Arc<dyn TeacherRepo>,

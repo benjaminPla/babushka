@@ -2,10 +2,8 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::{
-    application::teacher::errors::TeacherAppError,
-    domain::teacher::repository::TeacherRepo,
-};
+use crate::application::teacher::errors::TeacherAppError;
+use crate::domain::teacher::repository::TeacherRepo;
 
 pub struct TeacherDeleteUseCase {
     teacher_repo: Arc<dyn TeacherRepo>,

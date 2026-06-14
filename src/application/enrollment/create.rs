@@ -2,14 +2,12 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::{
-    application::enrollment::errors::EnrollmentAppError,
-    domain::{
-        course::repository::CourseRepo,
-        course_period::repository::CoursePeriodRepo,
-        enrollment::{repository::{EnrollmentRepo, EnrollmentRepoError}, Enrollment},
-    },
-};
+use crate::application::enrollment::errors::EnrollmentAppError;
+use crate::domain::course::repository::CourseRepo;
+use crate::domain::course_period::repository::CoursePeriodRepo;
+use crate::domain::enrollment::repository::EnrollmentRepo;
+use crate::domain::enrollment::repository::EnrollmentRepoError;
+use crate::domain::enrollment::Enrollment;
 
 pub struct EnrollmentCreateInput {
     pub student_id:       Uuid,

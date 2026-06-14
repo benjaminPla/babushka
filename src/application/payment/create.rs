@@ -3,14 +3,10 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::{
-    application::payment::errors::PaymentAppError,
-    domain::payment::{
-        repository::PaymentRepo,
-        value_objects::payment_method::PaymentMethod,
-        Payment,
-    },
-};
+use crate::application::payment::errors::PaymentAppError;
+use crate::domain::payment::repository::PaymentRepo;
+use crate::domain::payment::value_objects::payment_method::PaymentMethod;
+use crate::domain::payment::Payment;
 
 pub struct PaymentCreateInput {
     pub student_id:     Uuid,

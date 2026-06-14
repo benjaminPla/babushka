@@ -2,10 +2,8 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::{
-    application::course_period::errors::CoursePeriodAppError,
-    domain::course_period::repository::CoursePeriodRepo,
-};
+use crate::application::course_period::errors::CoursePeriodAppError;
+use crate::domain::course_period::repository::CoursePeriodRepo;
 
 pub struct CoursePeriodDeleteUseCase {
     repo: Arc<dyn CoursePeriodRepo>,

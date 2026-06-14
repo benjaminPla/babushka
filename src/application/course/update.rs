@@ -2,16 +2,13 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::{
-    application::course::errors::CourseAppError,
-    domain::{
-        course::{
-            repository::CourseRepo,
-            value_objects::{course_capacity::CourseCapacity, course_name::CourseName},
-        },
-        shared::value_objects::{age_group::AgeGroup, cents::Cents, notes::Notes},
-    },
-};
+use crate::application::course::errors::CourseAppError;
+use crate::domain::course::repository::CourseRepo;
+use crate::domain::course::value_objects::course_capacity::CourseCapacity;
+use crate::domain::course::value_objects::course_name::CourseName;
+use crate::domain::shared::value_objects::age_group::AgeGroup;
+use crate::domain::shared::value_objects::cents::Cents;
+use crate::domain::shared::value_objects::notes::Notes;
 
 pub struct CourseUpdateInput {
     pub id:                Uuid,

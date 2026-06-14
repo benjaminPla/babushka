@@ -5,25 +5,17 @@ use postgres::Client;
 use postgresql_embedded::PostgreSQL;
 use tokio::runtime::Runtime;
 
-use crate::{
-    domain::{
-        course::repository::CourseRepo,
-        student::repository::StudentRepo,
-        teacher::repository::TeacherRepo,
-    },
-    infrastructure::{
-        course::CoursePgRepo,
-        student::StudentPgRepo,
-        teacher::TeacherPgRepo,
-    },
-    presentation::{
-        render_notifications,
-        courses::{self, CoursesState},
-        students::{self, StudentsState},
-        teachers::{self, TeachersState},
-        Notifications,
-    },
-};
+use crate::domain::course::repository::CourseRepo;
+use crate::domain::student::repository::StudentRepo;
+use crate::domain::teacher::repository::TeacherRepo;
+use crate::infrastructure::course::CoursePgRepo;
+use crate::infrastructure::student::StudentPgRepo;
+use crate::infrastructure::teacher::TeacherPgRepo;
+use crate::presentation::render_notifications;
+use crate::presentation::courses::{self, CoursesState};
+use crate::presentation::students::{self, StudentsState};
+use crate::presentation::teachers::{self, TeachersState};
+use crate::presentation::Notifications;
 
 // ── Update state ──────────────────────────────────────────────────────────────
 

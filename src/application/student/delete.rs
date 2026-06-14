@@ -2,10 +2,8 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::{
-    application::student::errors::StudentAppError,
-    domain::student::repository::StudentRepo,
-};
+use crate::application::student::errors::StudentAppError;
+use crate::domain::student::repository::StudentRepo;
 
 pub struct StudentDeleteUseCase {
     student_repo: Arc<dyn StudentRepo>,

@@ -3,10 +3,9 @@ use std::sync::Arc;
 use chrono::NaiveDate;
 use uuid::Uuid;
 
-use crate::{
-    application::course_period::errors::CoursePeriodAppError,
-    domain::course_period::{repository::CoursePeriodRepo, CoursePeriod},
-};
+use crate::application::course_period::errors::CoursePeriodAppError;
+use crate::domain::course_period::repository::CoursePeriodRepo;
+use crate::domain::course_period::CoursePeriod;
 
 pub struct CoursePeriodCreateInput {
     pub course_id:  Uuid,

@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::{application::payment::errors::PaymentAppError, domain::payment::repository::PaymentRepo};
+use crate::application::payment::errors::PaymentAppError;
+use crate::domain::payment::repository::PaymentRepo;
 
 pub struct PaymentDeleteUseCase {
     payment_repo: Arc<dyn PaymentRepo>,
