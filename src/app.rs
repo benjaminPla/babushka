@@ -228,7 +228,7 @@ impl App {
                 self.render_update_banner(ui);
                 render_notifications(ui, &mut self.notifications);
                 let navigate_to = match self.current_view {
-                    View::Dashboard => dashboard::show(ui, &self.student_repo, &self.client, &mut self.dashboard_state, &mut self.notifications),
+                    View::Dashboard => dashboard::show(ui, &self.student_repo, &self.course_repo, &self.teacher_repo, &self.client, &mut self.dashboard_state, &mut self.notifications),
                     View::Courses   => { courses::show(ui, &self.course_repo,  &self.client, &mut self.courses_state,   &mut self.notifications); None }
                     View::Students  => { students::show(ui, &self.student_repo, &self.client, &mut self.students_state, &mut self.notifications); None }
                     View::Teachers  => { teachers::show(ui, &self.teacher_repo, &mut self.teachers_state, &mut self.notifications); None }

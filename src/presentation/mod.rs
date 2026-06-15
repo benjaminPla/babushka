@@ -2,7 +2,6 @@ pub mod courses;
 pub mod dashboard;
 pub mod notifications;
 pub mod students;
-pub mod table;
 pub mod teachers;
 
 pub use notifications::{Notifications, push_error, push_success, render as render_notifications};

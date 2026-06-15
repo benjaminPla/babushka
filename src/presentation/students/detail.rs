@@ -24,7 +24,6 @@ use crate::presentation::fmt_dt;
 use crate::presentation::push_error;
 use crate::presentation::push_success;
 use crate::presentation::Notifications;
-use crate::presentation::table;
 
 use super::{
     Mode, StudentsState,
@@ -130,7 +129,6 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
         egui::Window::new("Inscribir alumno")
             .collapsible(false)
             .resizable(false)
-            .auto_sized()
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
             .frame(egui::Frame::new()
                 .fill(colors::BLACK)
@@ -241,7 +239,6 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
         egui::Window::new("Registrar pago")
             .collapsible(false)
             .resizable(false)
-            .auto_sized()
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
             .frame(egui::Frame::new()
                 .fill(colors::BLACK)
