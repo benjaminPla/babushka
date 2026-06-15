@@ -86,15 +86,6 @@ fn days_in_month(year: i32, month: u32) -> u32 {
     (first_next - chrono::Duration::days(1)).day()
 }
 
-pub fn section_header(ui: &mut egui::Ui, label: &str) {
-    ui.label(
-        egui::RichText::new(label)
-            .size(crate::theme::sizes::FONT_SIZE_SMALL)
-            .color(crate::theme::colors::DARK_GRAY)
-            .strong(),
-    );
-    ui.separator();
-}
 
 pub fn confirm_delete_modal(ctx: &egui::Context, pending: &mut Option<Uuid>) -> Option<Uuid> {
     let Some(id) = *pending else { return None };
