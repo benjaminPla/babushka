@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
+use egui_phosphor::regular::MAGNIFYING_GLASS;
 use uuid::Uuid;
 
 use crate::application::teacher::delete::TeacherDeleteUseCase;
@@ -49,9 +50,9 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn TeacherRepo>, state: &mut Teachers
         .column(Column::remainder())
         .column(Column::auto())
         .header(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut header| {
-            header.col(|ui| { ui.label("Nombre"); });
-            header.col(|ui| { ui.label("Apellido"); });
-            header.col(|ui| { ui.label("Email"); });
+            header.col(|ui| { ui.add(egui::TextEdit::singleline(&mut state.filter_first_name).hint_text(format!("{MAGNIFYING_GLASS} Nombre"))); });
+            header.col(|ui| { ui.add(egui::TextEdit::singleline(&mut state.filter_last_name).hint_text(format!("{MAGNIFYING_GLASS} Apellido"))); });
+            header.col(|ui| { ui.add(egui::TextEdit::singleline(&mut state.filter_email).hint_text(format!("{MAGNIFYING_GLASS} Email"))); });
             header.col(|ui| { ui.label("Teléfono"); });
             header.col(|ui| { ui.label("Acciones"); });
         })

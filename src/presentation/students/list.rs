@@ -1,13 +1,14 @@
 use std::sync::Arc;
 
 use eframe::egui;
-use uuid::Uuid;
-
 use egui_extras::{Column, TableBuilder};
+use egui_phosphor::regular::MAGNIFYING_GLASS;
+use uuid::Uuid;
 
 use crate::application::student::delete::StudentDeleteUseCase;
 use crate::domain::student::repository::StudentRepo;
 use crate::presentation::{confirm_delete_modal, fmt_dt, push_error, push_success, Notifications};
+use crate::theme::sizes;
 
 use super::{StudentsState, clear_form};
 
@@ -49,17 +50,17 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn StudentRepo>, state: &mut Students
         .column(Column::remainder())
         .column(Column::remainder())
         .column(Column::auto())
-        .header(20.0, |mut h| {
-            h.col(|ui| { ui.label("Nombre"); });
-            h.col(|ui| { ui.label("Apellido"); });
-            h.col(|ui| { ui.label("Email"); });
-            h.col(|ui| { ui.label("Teléfono"); });
-            h.col(|ui| { ui.label("Tipo"); });
-            h.col(|ui| { ui.label("Acciones"); });
+        .header(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut header| {
+            header.col(|ui| { ui.add(egui::TextEdit::singleline(&mut state.filter_first_name).hint_text(format!("{MAGNIFYING_GLASS} Nombre"))); });
+            header.col(|ui| { ui.add(egui::TextEdit::singleline(&mut state.filter_last_name).hint_text(format!("{MAGNIFYING_GLASS} Apellido"))); });
+            header.col(|ui| { ui.add(egui::TextEdit::singleline(&mut state.filter_email).hint_text(format!("{MAGNIFYING_GLASS} Email"))); });
+            header.col(|ui| { ui.label("Teléfono"); });
+            header.col(|ui| { ui.label("Tipo"); });
+            header.col(|ui| { ui.label("Acciones"); });
         })
         .body(|mut body| {
             for s in &visible {
-                body.row(18.0, |mut row| {
+                body.row(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut row| {
                     row.col(|ui| { ui.label(&s.first_name); });
                     row.col(|ui| { ui.label(&s.last_name); });
                     row.col(|ui| { ui.label(&s.email); });

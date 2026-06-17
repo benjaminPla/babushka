@@ -1,15 +1,15 @@
 use std::sync::{Arc, Mutex};
 
 use eframe::egui;
+use egui_extras::{Column, TableBuilder};
+use egui_phosphor::regular::MAGNIFYING_GLASS;
 use postgres::Client;
 use uuid::Uuid;
 
-use egui_extras::{Column, TableBuilder};
-
 use crate::application::course::delete::CourseDeleteUseCase;
-use crate::presentation::{confirm_delete_modal, fmt_dt, push_error, push_success, Notifications};
-
 use crate::domain::course::repository::CourseRepo;
+use crate::presentation::{confirm_delete_modal, fmt_dt, push_error, push_success, Notifications};
+use crate::theme::sizes;
 
 use super::{clear_course_form, format_price, CoursesState, Mode};
 
@@ -50,17 +50,17 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn CourseRepo>, client: &Arc<Mutex<Cl
         .column(Column::remainder())
         .column(Column::remainder())
         .column(Column::auto())
-        .header(20.0, |mut h| {
-            h.col(|ui| { ui.label("Nombre"); });
-            h.col(|ui| { ui.label("Grupo"); });
-            h.col(|ui| { ui.label("Cap."); });
-            h.col(|ui| { ui.label("Mensual"); });
-            h.col(|ui| { ui.label("Por clase"); });
-            h.col(|ui| { ui.label("Acciones"); });
+        .header(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut header| {
+            header.col(|ui| { ui.add(egui::TextEdit::singleline(&mut state.filter_name).hint_text(format!("{MAGNIFYING_GLASS} Nombre"))); });
+            header.col(|ui| { ui.label("Grupo"); });
+            header.col(|ui| { ui.label("Cap."); });
+            header.col(|ui| { ui.label("Mensual"); });
+            header.col(|ui| { ui.label("Por clase"); });
+            header.col(|ui| { ui.label("Acciones"); });
         })
         .body(|mut body| {
             for c in &visible {
-                body.row(18.0, |mut row| {
+                body.row(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut row| {
                     row.col(|ui| { ui.label(&c.name); });
                     row.col(|ui| { ui.label(c.age_group.label()); });
                     row.col(|ui| { ui.label(c.capacity.to_string()); });
