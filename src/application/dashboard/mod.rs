@@ -2,17 +2,15 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::application::student_ledger::{LedgerKind, StudentLedgerUseCase};
 use crate::domain::course::repository::CourseRepo;
 use crate::domain::enrollment::repository::EnrollmentRepo;
-use crate::domain::payment::repository::PaymentRepo;
 use crate::domain::student::{repository::StudentRepo, AgeGroup};
 use crate::domain::teacher::repository::TeacherRepo;
 
 pub struct DebtorRow {
     pub id:        Uuid,
     pub full_name: String,
-    pub pending:   String,  // comma-separated "Course — Period" labels
+    pub pending:   String,
 }
 
 pub struct DashboardData {
@@ -33,7 +31,6 @@ pub enum DashboardError {
 pub struct DashboardUseCase {
     student_repo:    Arc<dyn StudentRepo>,
     enrollment_repo: Arc<dyn EnrollmentRepo>,
-    payment_repo:    Arc<dyn PaymentRepo>,
     course_repo:     Arc<dyn CourseRepo>,
     teacher_repo:    Arc<dyn TeacherRepo>,
 }
@@ -42,11 +39,10 @@ impl DashboardUseCase {
     pub fn new(
         student_repo:    Arc<dyn StudentRepo>,
         enrollment_repo: Arc<dyn EnrollmentRepo>,
-        payment_repo:    Arc<dyn PaymentRepo>,
         course_repo:     Arc<dyn CourseRepo>,
         teacher_repo:    Arc<dyn TeacherRepo>,
     ) -> Self {
-        Self { student_repo, enrollment_repo, payment_repo, course_repo, teacher_repo }
+        Self { student_repo, enrollment_repo, course_repo, teacher_repo }
     }
 
     pub fn load(&self) -> Result<DashboardData, DashboardError> {
@@ -59,21 +55,14 @@ impl DashboardUseCase {
         let courses_adult  = courses.iter().filter(|c| c.age_group() == AgeGroup::Adult).count();
         let courses_minor  = courses.iter().filter(|c| c.age_group() == AgeGroup::Minor).count();
 
-        let ledger_uc = StudentLedgerUseCase::new(
-            Arc::clone(&self.enrollment_repo),
-            Arc::clone(&self.payment_repo),
-        );
-
         let mut debtors: Vec<DebtorRow> = students
             .iter()
             .filter_map(|s| {
-                let entries = ledger_uc.execute(s.id()).ok()?;
-                let pending_entries: Vec<_> = entries.iter()
-                    .filter(|e| e.kind == LedgerKind::Pending)
-                    .collect();
-                if pending_entries.is_empty() { return None; }
-                let pending = pending_entries.iter()
-                    .map(|e| e.description.trim_start_matches("Inscripción: ").to_string())
+                let enrollments = self.enrollment_repo.get_by_student(s.id()).ok()?;
+                let unpaid: Vec<_> = enrollments.iter().filter(|e| !e.is_paid()).collect();
+                if unpaid.is_empty() { return None; }
+                let pending = unpaid.iter()
+                    .map(|e| format!("{} — {}", e.course_name(), e.period_label()))
                     .collect::<Vec<_>>()
                     .join(", ");
                 Some(DebtorRow {

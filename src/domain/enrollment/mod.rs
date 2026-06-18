@@ -1,48 +1,75 @@
 pub mod repository;
+pub mod value_objects;
 
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
+use crate::domain::enrollment::value_objects::{
+    payment_method::PaymentMethod,
+    pricing_type::PricingType,
+};
+
 pub struct Enrollment {
-    id:               Uuid,
-    student_id:       Uuid,
-    course_period_id: Uuid,
-    course_id:        Uuid,
-    period_label:     String,
-    course_name:      String,
-    enrolled_at:      DateTime<Utc>,
+    id:                Uuid,
+    student_id:        Uuid,
+    course_period_id:  Uuid,
+    course_id:         Uuid,
+    period_label:      String,
+    course_name:       String,
+    pricing_type:      PricingType,
+    enrolled_at:       DateTime<Utc>,
+    paid_amount_cents: Option<i32>,
+    payment_method:    Option<PaymentMethod>,
+    paid_at:           Option<DateTime<Utc>>,
 }
 
 impl Enrollment {
-    pub fn new(student_id: Uuid, course_period_id: Uuid) -> Self {
+    pub fn new(student_id: Uuid, course_period_id: Uuid, pricing_type: PricingType) -> Self {
         Self {
-            id:               Uuid::new_v4(),
+            id:                Uuid::new_v4(),
             student_id,
             course_period_id,
-            course_id:        Uuid::nil(),
-            period_label:     String::new(),
-            course_name:      String::new(),
-            enrolled_at:      Utc::now(),
+            course_id:         Uuid::nil(),
+            period_label:      String::new(),
+            course_name:       String::new(),
+            pricing_type,
+            enrolled_at:       Utc::now(),
+            paid_amount_cents: None,
+            payment_method:    None,
+            paid_at:           None,
         }
     }
 
     pub fn reconstitute(
-        id:               Uuid,
-        student_id:       Uuid,
-        course_period_id: Uuid,
-        course_id:        Uuid,
-        period_label:     String,
-        course_name:      String,
-        enrolled_at:      DateTime<Utc>,
+        id:                Uuid,
+        student_id:        Uuid,
+        course_period_id:  Uuid,
+        course_id:         Uuid,
+        period_label:      String,
+        course_name:       String,
+        pricing_type:      PricingType,
+        enrolled_at:       DateTime<Utc>,
+        paid_amount_cents: Option<i32>,
+        payment_method:    Option<PaymentMethod>,
+        paid_at:           Option<DateTime<Utc>>,
     ) -> Self {
-        Self { id, student_id, course_period_id, course_id, period_label, course_name, enrolled_at }
+        Self {
+            id, student_id, course_period_id, course_id, period_label, course_name,
+            pricing_type, enrolled_at, paid_amount_cents, payment_method, paid_at,
+        }
     }
 
-    pub fn id(&self)               -> Uuid          { self.id }
-    pub fn student_id(&self)       -> Uuid          { self.student_id }
-    pub fn course_period_id(&self) -> Uuid          { self.course_period_id }
-    pub fn course_id(&self)        -> Uuid          { self.course_id }
-    pub fn period_label(&self)     -> &str          { &self.period_label }
-    pub fn course_name(&self)      -> &str          { &self.course_name }
-    pub fn enrolled_at(&self)      -> DateTime<Utc> { self.enrolled_at }
+    pub fn id(&self)                -> Uuid                  { self.id }
+    pub fn student_id(&self)        -> Uuid                  { self.student_id }
+    pub fn course_period_id(&self)  -> Uuid                  { self.course_period_id }
+    pub fn course_id(&self)         -> Uuid                  { self.course_id }
+    pub fn period_label(&self)      -> &str                  { &self.period_label }
+    pub fn course_name(&self)       -> &str                  { &self.course_name }
+    pub fn pricing_type(&self)      -> &str                  { self.pricing_type.value() }
+    pub fn is_monthly(&self)        -> bool                  { self.pricing_type.is_monthly() }
+    pub fn enrolled_at(&self)       -> DateTime<Utc>         { self.enrolled_at }
+    pub fn paid_amount_cents(&self) -> Option<i32>           { self.paid_amount_cents }
+    pub fn payment_method(&self)    -> Option<&str>          { self.payment_method.as_ref().map(|m| m.value()) }
+    pub fn paid_at(&self)           -> Option<DateTime<Utc>> { self.paid_at }
+    pub fn is_paid(&self)           -> bool                  { self.paid_at.is_some() }
 }

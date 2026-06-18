@@ -4,11 +4,13 @@ use uuid::Uuid;
 
 use crate::application::enrollment::errors::EnrollmentAppError;
 use crate::domain::enrollment::repository::{EnrollmentRepo, EnrollmentRepoError};
+use crate::domain::enrollment::value_objects::pricing_type::PricingType;
 use crate::domain::enrollment::Enrollment;
 
 pub struct EnrollmentCreateInput {
     pub student_id:       Uuid,
     pub course_period_id: Uuid,
+    pub pricing_type:     String,
 }
 
 pub struct EnrollmentCreateUseCase {
@@ -21,7 +23,10 @@ impl EnrollmentCreateUseCase {
     }
 
     pub fn execute(&self, input: EnrollmentCreateInput) -> Result<(), EnrollmentAppError> {
-        let enrollment = Enrollment::new(input.student_id, input.course_period_id);
+        let pricing_type = PricingType::new(&input.pricing_type)
+            .map_err(|e| EnrollmentAppError::Validation(e.to_string()))?;
+
+        let enrollment = Enrollment::new(input.student_id, input.course_period_id, pricing_type);
 
         self.enrollment_repo.create(&enrollment).map_err(|e| {
             if let EnrollmentRepoError::Database(ref msg) = e {

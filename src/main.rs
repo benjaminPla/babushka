@@ -68,7 +68,8 @@ fn run_migrations(client: &mut postgres::Client) -> Result<(), String> {
         ("005_enrollments.sql",          include_str!("../database/migrations/005_enrollments.sql")),
         ("006_payments.sql",             include_str!("../database/migrations/006_payments.sql")),
         ("007_courses_price_split.sql",   include_str!("../database/migrations/007_courses_price_split.sql")),
-        ("008_enrollment_settlement.sql", include_str!("../database/migrations/008_enrollment_settlement.sql")),
+        ("008_enrollment_settlement.sql",           include_str!("../database/migrations/008_enrollment_settlement.sql")),
+        ("009_embed_payment_into_enrollment.sql",    include_str!("../database/migrations/009_embed_payment_into_enrollment.sql")),
     ];
 
     for (name, sql) in migrations {

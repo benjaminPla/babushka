@@ -6,6 +6,10 @@ use uuid::Uuid;
 
 use crate::domain::enrollment::{
     repository::{EnrollmentRepo, EnrollmentRepoError},
+    value_objects::{
+        payment_method::PaymentMethod,
+        pricing_type::PricingType,
+    },
     Enrollment,
 };
 
@@ -32,19 +36,38 @@ fn pg_err(e: postgres::Error) -> EnrollmentRepoError {
 }
 
 fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
-    let id:           Uuid          = row.get("id");
-    let student_id:   Uuid          = row.get("student_id");
-    let period_id:    Uuid          = row.get("course_period_id");
-    let course_id:    Uuid          = row.get("course_id");
-    let period_label: String        = row.get("period_label");
-    let course_name:  String        = row.get("course_name");
-    let enrolled_at:  DateTime<Utc> = row.get("enrolled_at");
+    let id:                Uuid                  = row.get("id");
+    let student_id:        Uuid                  = row.get("student_id");
+    let period_id:         Uuid                  = row.get("course_period_id");
+    let course_id:         Uuid                  = row.get("course_id");
+    let period_label:      String                = row.get("period_label");
+    let course_name:       String                = row.get("course_name");
+    let pricing_type_str:  String                = row.get("pricing_type");
+    let enrolled_at:       DateTime<Utc>         = row.get("enrolled_at");
+    let paid_amount_cents: Option<i32>           = row.get("paid_amount_cents");
+    let method_text:       Option<String>        = row.get("payment_method_text");
+    let paid_at:           Option<DateTime<Utc>> = row.get("paid_at");
 
-    Ok(Enrollment::reconstitute(id, student_id, period_id, course_id, period_label, course_name, enrolled_at))
+    let pricing_type = PricingType::new(&pricing_type_str)
+        .map_err(|_| EnrollmentRepoError::Database(format!("unknown pricing_type: {pricing_type_str}")))?;
+
+    let payment_method = match method_text {
+        Some(m) => Some(PaymentMethod::new(&m)
+            .map_err(|_| EnrollmentRepoError::Database(format!("unknown payment_method: {m}")))?),
+        None => None,
+    };
+
+    Ok(Enrollment::reconstitute(
+        id, student_id, period_id, course_id, period_label, course_name,
+        pricing_type, enrolled_at, paid_amount_cents, payment_method, paid_at,
+    ))
 }
 
 const SELECT: &str = "
     SELECT e.id, e.student_id, e.course_period_id, e.enrolled_at,
+           e.pricing_type, e.paid_amount_cents,
+           e.payment_method::text AS payment_method_text,
+           e.paid_at,
            c.id AS course_id,
            TO_CHAR(cp.start_date, 'FMMonth YYYY') AS period_label,
            c.name AS course_name
@@ -56,8 +79,14 @@ impl EnrollmentRepo for EnrollmentPgRepo {
     fn create(&self, enrollment: &Enrollment) -> Result<(), EnrollmentRepoError> {
         self.client.lock().unwrap()
             .execute(
-                "INSERT INTO enrollments (id, student_id, course_period_id) VALUES ($1, $2, $3)",
-                &[&enrollment.id(), &enrollment.student_id(), &enrollment.course_period_id()],
+                "INSERT INTO enrollments (id, student_id, course_period_id, pricing_type)
+                 VALUES ($1, $2, $3, $4)",
+                &[
+                    &enrollment.id(),
+                    &enrollment.student_id(),
+                    &enrollment.course_period_id(),
+                    &enrollment.pricing_type(),
+                ],
             )
             .map_err(pg_err)?;
         Ok(())
@@ -77,5 +106,20 @@ impl EnrollmentRepo for EnrollmentPgRepo {
             .query(&query, &[&student_id])
             .map_err(pg_err)?;
         rows.iter().map(row_to_enrollment).collect()
+    }
+
+    fn pay(&self, id: Uuid, amount_cents: i32, method: PaymentMethod, paid_at: DateTime<Utc>) -> Result<(), EnrollmentRepoError> {
+        let n = self.client.lock().unwrap()
+            .execute(
+                "UPDATE enrollments
+                 SET paid_amount_cents = $2,
+                     payment_method    = $3::text::payment_method,
+                     paid_at           = $4
+                 WHERE id = $1",
+                &[&id, &amount_cents, &method.value(), &paid_at],
+            )
+            .map_err(pg_err)?;
+        if n == 0 { return Err(EnrollmentRepoError::NotFound(id)); }
+        Ok(())
     }
 }

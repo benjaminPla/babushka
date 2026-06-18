@@ -1,11 +1,16 @@
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::domain::enrollment::Enrollment;
+use crate::domain::enrollment::{
+    value_objects::payment_method::PaymentMethod,
+    Enrollment,
+};
 
 pub trait EnrollmentRepo: Send + Sync {
-    fn create(&self, enrollment: &Enrollment)           -> Result<(), EnrollmentRepoError>;
-    fn delete(&self, id: Uuid)                          -> Result<(), EnrollmentRepoError>;
-    fn get_by_student(&self, student_id: Uuid)          -> Result<Vec<Enrollment>, EnrollmentRepoError>;
+    fn create(&self, enrollment: &Enrollment)                        -> Result<(), EnrollmentRepoError>;
+    fn delete(&self, id: Uuid)                                       -> Result<(), EnrollmentRepoError>;
+    fn get_by_student(&self, student_id: Uuid)                       -> Result<Vec<Enrollment>, EnrollmentRepoError>;
+    fn pay(&self, id: Uuid, amount_cents: i32, method: PaymentMethod, paid_at: DateTime<Utc>) -> Result<(), EnrollmentRepoError>;
 }
 
 #[derive(Debug, thiserror::Error)]

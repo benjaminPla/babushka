@@ -238,9 +238,9 @@ impl App {
                     match self.student_repo.get_by_id(id) {
                         Ok(student) => {
                             students::clear_detail_state(&mut self.students_state);
-                            self.students_state.selected_student    = Some(StudentDto::from(&student));
-                            self.students_state.needs_reload_ledger = true;
-                            self.students_state.mode               = students::Mode::Detail;
+                            self.students_state.selected_student         = Some(StudentDto::from(&student));
+                            self.students_state.needs_reload_enrollments = true;
+                            self.students_state.mode                     = students::Mode::Detail;
                             self.current_view = View::Students;
                         }
                         Err(e) => crate::presentation::push_error(&mut self.notifications, e.to_string()),

@@ -80,9 +80,9 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn StudentRepo>, state: &mut Students
             Action::Open => {
                 if let Some(s) = state.students.iter().find(|s| s.id == id).cloned() {
                     super::clear_detail_state(state);
-                    state.selected_student    = Some(s);
-                    state.needs_reload_ledger = true;
-                    state.mode               = super::Mode::Detail;
+                    state.selected_student         = Some(s);
+                    state.needs_reload_enrollments = true;
+                    state.mode                     = super::Mode::Detail;
                 }
             }
             Action::Edit => {

@@ -13,13 +13,12 @@ use crate::application::course::dto::CourseDto;
 use crate::application::course_period::dto::CoursePeriodDto;
 use crate::application::student::dto::StudentDto;
 use crate::application::student::get_all::StudentGetAllUseCase;
-use crate::application::student_ledger::LedgerEntry;
+use crate::domain::enrollment::Enrollment;
 use crate::domain::student::repository::StudentRepo;
 use crate::domain::student::AgeGroup;
 use crate::infrastructure::course::CoursePgRepo;
 use crate::infrastructure::course_period::CoursePeriodPgRepo;
 use crate::infrastructure::enrollment::EnrollmentPgRepo;
-use crate::infrastructure::payment::PaymentPgRepo;
 use crate::presentation::push_error;
 use crate::presentation::Notifications;
 
@@ -47,10 +46,9 @@ pub struct StudentsState {
     pub updated_at: String,
 
     // detail
-    pub selected_student:    Option<StudentDto>,
-    pub ledger:              Vec<LedgerEntry>,
-    pub pending_count:       usize,
-    pub needs_reload_ledger: bool,
+    pub selected_student:         Option<StudentDto>,
+    pub enrollments:              Vec<Enrollment>,
+    pub needs_reload_enrollments: bool,
 
     // enroll modal
     pub show_enroll_form:     bool,
@@ -60,15 +58,14 @@ pub struct StudentsState {
     pub enroll_periods:       Vec<CoursePeriodDto>,
     pub enroll_sel_period:    Option<Uuid>,
     pub enroll_period_filter: String,
+    pub enroll_pricing_type:  String,
 
-    // payment modal
-    pub show_payment_form:        bool,
-    pub payment_amount:           String,
-    pub payment_method:           String,
-    pub payment_paid_at:          NaiveDate,
-    pub payment_notes:            String,
-    pub payment_enrollment_id:    Option<Uuid>,
-    pub payment_enroll_options:   Vec<(Uuid, String, Uuid)>,  // (enrollment_id, label, course_id)
+    // payment modal (triggered per enrollment)
+    pub show_payment_form:   bool,
+    pub pay_enrollment_id:   Option<Uuid>,
+    pub pay_amount:          String,
+    pub pay_method:          String,
+    pub pay_date:            NaiveDate,
 
     pub confirm_delete: Option<Uuid>,
 }
@@ -97,10 +94,9 @@ impl Default for StudentsState {
             notes:             String::new(),
             created_at:        String::new(),
             updated_at:        String::new(),
-            selected_student:    None,
-            ledger:              Vec::new(),
-            pending_count:       0,
-            needs_reload_ledger: false,
+            selected_student:         None,
+            enrollments:              Vec::new(),
+            needs_reload_enrollments: false,
             show_enroll_form:     false,
             enroll_courses:       Vec::new(),
             enroll_sel_course:    None,
@@ -108,13 +104,12 @@ impl Default for StudentsState {
             enroll_periods:       Vec::new(),
             enroll_sel_period:    None,
             enroll_period_filter: String::new(),
-            show_payment_form:        false,
-            payment_amount:           String::new(),
-            payment_method:           "cash".into(),
-            payment_paid_at:          today(),
-            payment_notes:            String::new(),
-            payment_enrollment_id:    None,
-            payment_enroll_options:   Vec::new(),
+            enroll_pricing_type:  "monthly".into(),
+            show_payment_form:   false,
+            pay_enrollment_id:   None,
+            pay_amount:          String::new(),
+            pay_method:          "cash".into(),
+            pay_date:            today(),
             confirm_delete:    None,
         }
     }
@@ -122,9 +117,6 @@ impl Default for StudentsState {
 
 pub fn make_enrollment_repo(client: &Arc<Mutex<Client>>) -> Arc<EnrollmentPgRepo> {
     Arc::new(EnrollmentPgRepo::new(Arc::clone(client)))
-}
-pub fn make_payment_repo(client: &Arc<Mutex<Client>>) -> Arc<PaymentPgRepo> {
-    Arc::new(PaymentPgRepo::new(Arc::clone(client)))
 }
 pub fn make_course_repo(client: &Arc<Mutex<Client>>) -> Arc<CoursePgRepo> {
     Arc::new(CoursePgRepo::new(Arc::clone(client)))
@@ -134,25 +126,23 @@ pub fn make_course_period_repo(client: &Arc<Mutex<Client>>) -> Arc<CoursePeriodP
 }
 
 pub fn clear_detail_state(state: &mut StudentsState) {
-    state.selected_student    = None;
-    state.ledger              = Vec::new();
-    state.pending_count       = 0;
-    state.needs_reload_ledger = false;
-    state.show_enroll_form     = false;
-    state.enroll_courses       = Vec::new();
-    state.enroll_sel_course    = None;
-    state.enroll_course_filter = String::new();
-    state.enroll_periods       = Vec::new();
-    state.enroll_sel_period    = None;
-    state.enroll_period_filter = String::new();
+    state.selected_student         = None;
+    state.enrollments              = Vec::new();
+    state.needs_reload_enrollments = false;
+    state.show_enroll_form         = false;
+    state.enroll_courses           = Vec::new();
+    state.enroll_sel_course        = None;
+    state.enroll_course_filter     = String::new();
+    state.enroll_periods           = Vec::new();
+    state.enroll_sel_period        = None;
+    state.enroll_period_filter     = String::new();
+    state.enroll_pricing_type      = "monthly".into();
     state.show_payment_form        = false;
-    state.payment_amount           = String::new();
-    state.payment_method           = "cash".into();
-    state.payment_paid_at          = today();
-    state.payment_notes            = String::new();
-    state.payment_enrollment_id    = None;
-    state.payment_enroll_options   = Vec::new();
-    state.confirm_delete    = None;
+    state.pay_enrollment_id        = None;
+    state.pay_amount               = String::new();
+    state.pay_method               = "cash".into();
+    state.pay_date                 = today();
+    state.confirm_delete           = None;
 }
 
 pub fn clear_form(state: &mut StudentsState) {
