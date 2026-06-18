@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use uuid::Uuid;
 
-use crate::application::student_ledger::StudentLedgerUseCase;
+use crate::application::student_ledger::{LedgerKind, StudentLedgerUseCase};
 use crate::domain::course::repository::CourseRepo;
 use crate::domain::enrollment::repository::EnrollmentRepo;
 use crate::domain::payment::repository::PaymentRepo;
@@ -10,9 +10,9 @@ use crate::domain::student::{repository::StudentRepo, AgeGroup};
 use crate::domain::teacher::repository::TeacherRepo;
 
 pub struct DebtorRow {
-    pub id:            Uuid,
-    pub full_name:     String,
-    pub balance_cents: i32,
+    pub id:        Uuid,
+    pub full_name: String,
+    pub pending:   String,  // comma-separated "Course — Period" labels
 }
 
 pub struct DashboardData {
@@ -67,16 +67,24 @@ impl DashboardUseCase {
         let mut debtors: Vec<DebtorRow> = students
             .iter()
             .filter_map(|s| {
-                let (_, balance) = ledger_uc.execute(s.id()).ok()?;
-                (balance < 0).then(|| DebtorRow {
-                    id:            s.id(),
-                    full_name:     format!("{} {}", s.first_name(), s.last_name()),
-                    balance_cents: balance,
+                let entries = ledger_uc.execute(s.id()).ok()?;
+                let pending_entries: Vec<_> = entries.iter()
+                    .filter(|e| e.kind == LedgerKind::Pending)
+                    .collect();
+                if pending_entries.is_empty() { return None; }
+                let pending = pending_entries.iter()
+                    .map(|e| e.description.trim_start_matches("Inscripción: ").to_string())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                Some(DebtorRow {
+                    id:        s.id(),
+                    full_name: format!("{} {}", s.first_name(), s.last_name()),
+                    pending,
                 })
             })
             .collect();
 
-        debtors.sort_by_key(|r| r.balance_cents);
+        debtors.sort_by(|a, b| a.full_name.cmp(&b.full_name));
 
         Ok(DashboardData {
             debtors,

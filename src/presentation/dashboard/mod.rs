@@ -11,7 +11,7 @@ use crate::domain::student::repository::StudentRepo;
 use crate::domain::teacher::repository::TeacherRepo;
 use crate::infrastructure::enrollment::EnrollmentPgRepo;
 use crate::infrastructure::payment::PaymentPgRepo;
-use crate::presentation::{fmt_ars, push_error, Notifications};
+use crate::presentation::{push_error, Notifications};
 use crate::theme::{colors, sizes};
 
 pub struct DashboardState {
@@ -133,11 +133,11 @@ pub fn show(
     ui.add_space(sizes::SPACING_NORMAL);
 
     // ── Debtors widget ────────────────────────────────────────────────────────
-    ui.label(egui::RichText::new("Alumnos con deuda").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
+    ui.label(egui::RichText::new("Alumnos con meses pendientes").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
     ui.add_space(sizes::SPACING_SMALL);
 
     if state.debtors.is_empty() {
-        ui.label(egui::RichText::new("No hay alumnos con deuda.").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+        ui.label(egui::RichText::new("No hay alumnos con meses pendientes.").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
         return None;
     }
 
@@ -147,11 +147,11 @@ pub fn show(
         .striped(true)
         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
         .column(Column::remainder())
-        .column(Column::auto())
+        .column(Column::remainder())
         .column(Column::auto())
         .header(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut h| {
             h.col(|ui| { ui.label("Alumno"); });
-            h.col(|ui| { ui.label("Deuda"); });
+            h.col(|ui| { ui.label("Pendiente"); });
             h.col(|_ui| {});
         })
         .body(|mut body| {
@@ -161,7 +161,7 @@ pub fn show(
                         ui.label(egui::RichText::new(&row.full_name).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
                     });
                     r.col(|ui| {
-                        ui.colored_label(colors::RED, fmt_ars(row.balance_cents));
+                        ui.colored_label(colors::RED, &row.pending);
                     });
                     r.col(|ui| {
                         if ui.small_button(egui_phosphor::regular::EYE).clicked() {

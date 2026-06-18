@@ -3,10 +3,7 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::application::enrollment::errors::EnrollmentAppError;
-use crate::domain::course::repository::CourseRepo;
-use crate::domain::course_period::repository::CoursePeriodRepo;
-use crate::domain::enrollment::repository::EnrollmentRepo;
-use crate::domain::enrollment::repository::EnrollmentRepoError;
+use crate::domain::enrollment::repository::{EnrollmentRepo, EnrollmentRepoError};
 use crate::domain::enrollment::Enrollment;
 
 pub struct EnrollmentCreateInput {
@@ -15,28 +12,16 @@ pub struct EnrollmentCreateInput {
 }
 
 pub struct EnrollmentCreateUseCase {
-    enrollment_repo:    Arc<dyn EnrollmentRepo>,
-    course_period_repo: Arc<dyn CoursePeriodRepo>,
-    course_repo:        Arc<dyn CourseRepo>,
+    enrollment_repo: Arc<dyn EnrollmentRepo>,
 }
 
 impl EnrollmentCreateUseCase {
-    pub fn new(
-        enrollment_repo:    Arc<dyn EnrollmentRepo>,
-        course_period_repo: Arc<dyn CoursePeriodRepo>,
-        course_repo:        Arc<dyn CourseRepo>,
-    ) -> Self {
-        Self { enrollment_repo, course_period_repo, course_repo }
+    pub fn new(enrollment_repo: Arc<dyn EnrollmentRepo>) -> Self {
+        Self { enrollment_repo }
     }
 
     pub fn execute(&self, input: EnrollmentCreateInput) -> Result<(), EnrollmentAppError> {
-        let period = self.course_period_repo.get_by_id(input.course_period_id)
-            .map_err(|_| EnrollmentAppError::NotFound)?;
-        let course = self.course_repo.get_by_id(period.course_id())
-            .map_err(|_| EnrollmentAppError::NotFound)?;
-
-        let price_cents = course.month_price_cents().value();
-        let enrollment = Enrollment::new(input.student_id, input.course_period_id, price_cents);
+        let enrollment = Enrollment::new(input.student_id, input.course_period_id);
 
         self.enrollment_repo.create(&enrollment).map_err(|e| {
             if let EnrollmentRepoError::Database(ref msg) = e {
@@ -46,8 +31,8 @@ impl EnrollmentCreateUseCase {
             e.into()
         })?;
 
-        log::info!("[enrollment] created: id={} student={} period={} price={}",
-            enrollment.id(), input.student_id, input.course_period_id, price_cents);
+        log::info!("[enrollment] created: id={} student={} period={}",
+            enrollment.id(), input.student_id, input.course_period_id);
         Ok(())
     }
 }

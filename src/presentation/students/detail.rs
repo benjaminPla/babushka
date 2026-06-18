@@ -30,6 +30,31 @@ use super::{
     make_course_period_repo, make_course_repo, make_enrollment_repo, make_payment_repo,
 };
 
+const PAYMENT_METHODS: &[(&str, &str)] = &[
+    ("cash",     "Efectivo"),
+    ("transfer", "Transferencia"),
+    ("card",     "Tarjeta"),
+    ("discount", "Descuento"),
+];
+
+fn method_label(s: &str) -> &str {
+    PAYMENT_METHODS.iter().find(|(v, _)| *v == s).map(|(_, l)| *l).unwrap_or(s)
+}
+
+fn parse_cents(s: &str) -> Option<i32> {
+    s.trim().parse::<f64>().ok().map(|f| (f * 100.0).round() as i32)
+}
+
+fn naive_date_to_utc(d: NaiveDate) -> chrono::DateTime<Utc> {
+    Utc.from_utc_datetime(&d.and_hms_opt(12, 0, 0).unwrap())
+}
+
+fn today() -> NaiveDate {
+    use chrono::{Datelike, Local};
+    let n = Local::now();
+    NaiveDate::from_ymd_opt(n.year(), n.month(), n.day()).unwrap()
+}
+
 pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut StudentsState, notifs: &mut Notifications) {
     let student = match &state.selected_student {
         Some(s) => s.clone(),
@@ -40,9 +65,9 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
         state.needs_reload_ledger = false;
         let ledger_uc = StudentLedgerUseCase::new(make_enrollment_repo(client), make_payment_repo(client));
         match ledger_uc.execute(student.id) {
-            Ok((entries, balance)) => {
+            Ok(entries) => {
+                state.pending_count = entries.iter().filter(|e| e.kind == LedgerKind::Pending).count();
                 state.ledger        = entries;
-                state.balance_cents = balance;
             }
             Err(e) => push_error(notifs, e.to_string()),
         }
@@ -96,13 +121,23 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     ui.separator();
 
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new("Saldo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
+        ui.label(egui::RichText::new("Movimientos").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if ui.button("+ Pago").clicked() {
-                state.payment_amount    = String::new();
-                state.payment_method    = "cash".into();
-                state.payment_paid_at   = today();
-                state.payment_notes     = String::new();
+                state.payment_amount        = String::new();
+                state.payment_method        = "cash".into();
+                state.payment_paid_at       = today();
+                state.payment_notes         = String::new();
+                state.payment_enrollment_id = None;
+                state.payment_enroll_options = state.ledger.iter()
+                    .filter(|e| e.kind == LedgerKind::Pending)
+                    .filter_map(|e| e.course_id.map(|cid| (e.id, e.description.trim_start_matches("Inscripción: ").to_string(), cid)))
+                    .collect();
+                if state.enroll_courses.is_empty() {
+                    if let Ok(courses) = CourseGetAllUseCase::new(make_course_repo(client)).execute() {
+                        state.enroll_courses = courses.into_iter().filter(|c| c.age_group == student.age_group).collect();
+                    }
+                }
                 state.show_payment_form = true;
             }
             if ui.button("+ Inscribir").clicked() {
@@ -116,15 +151,13 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                     state.show_enroll_form     = true;
                 }
             }
-            let (color, sign) = if state.balance_cents >= 0 {
-                (colors::GREEN, "+")
-            } else {
-                (colors::RED, "")
-            };
-            ui.colored_label(color, format!("{sign}{}", fmt_ars(state.balance_cents)));
+            if state.pending_count > 0 {
+                ui.colored_label(colors::RED, format!("{} mes(es) pendiente(s)", state.pending_count));
+            }
         });
     });
 
+    // ── Enroll form ───────────────────────────────────────────────────────────
     if state.show_enroll_form {
         egui::Window::new("Inscribir alumno")
             .collapsible(false)
@@ -186,13 +219,6 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                                 ui.selectable_value(&mut state.enroll_sel_period, Some(p.id), &p.label);
                             }
                         });
-                    if let Some(price) = state.enroll_sel_course
-                        .and_then(|id| state.enroll_courses.iter().find(|c| c.id == id))
-                        .map(|c| c.month_price_cents)
-                    {
-                        ui.add_space(sizes::SPACING_SMALL);
-                        ui.colored_label(colors::DARK_GRAY, format!("Precio mensual: {}", fmt_ars(price)));
-                    }
                     ui.add_space(sizes::SPACING_NORMAL);
 
                     ui.horizontal(|ui| {
@@ -210,8 +236,6 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                                     Some(period_id) => {
                                         match EnrollmentCreateUseCase::new(
                                             make_enrollment_repo(client),
-                                            make_course_period_repo(client),
-                                            make_course_repo(client),
                                         ).execute(EnrollmentCreateInput { student_id: student.id, course_period_id: period_id }) {
                                             Ok(_) => {
                                                 push_success(notifs, "Alumno inscrito");
@@ -235,6 +259,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
             });
     }
 
+    // ── Payment form ──────────────────────────────────────────────────────────
     if state.show_payment_form {
         egui::Window::new("Registrar pago")
             .collapsible(false)
@@ -247,12 +272,34 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
             )
             .show(ui.ctx(), |ui| {
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
+                    if !state.payment_enroll_options.is_empty() {
+                        ui.label(egui::RichText::new("Inscripción").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                        let enroll_label = state.payment_enrollment_id
+                            .and_then(|eid| state.payment_enroll_options.iter().find(|(id, _, _)| *id == eid))
+                            .map(|(_, label, _)| label.clone())
+                            .unwrap_or_else(|| "Ninguna".into());
+                        let enroll_resp = egui::ComboBox::from_id_salt("pay_enroll")
+                            .width(ui.available_width())
+                            .selected_text(enroll_label)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut state.payment_enrollment_id, None, "Ninguna");
+                                let options = state.payment_enroll_options.clone();
+                                for (eid, label, _) in &options {
+                                    ui.selectable_value(&mut state.payment_enrollment_id, Some(*eid), label);
+                                }
+                            });
+                        if enroll_resp.response.changed() {
+                            auto_fill_amount(state);
+                        }
+                        ui.add_space(sizes::SPACING_SMALL);
+                    }
+
                     ui.label(egui::RichText::new("Monto").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
                     ui.add_sized([ui.available_width(), 0.0], egui::TextEdit::singleline(&mut state.payment_amount));
                     ui.add_space(sizes::SPACING_SMALL);
 
                     ui.label(egui::RichText::new("Método").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                    egui::ComboBox::from_id_salt("pay_method")
+                    let method_resp = egui::ComboBox::from_id_salt("pay_method")
                         .width(ui.available_width())
                         .selected_text(method_label(&state.payment_method))
                         .show_ui(ui, |ui| {
@@ -260,6 +307,9 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                                 ui.selectable_value(&mut state.payment_method, val.to_string(), *label);
                             }
                         });
+                    if method_resp.response.changed() {
+                        auto_fill_amount(state);
+                    }
                     ui.add_space(sizes::SPACING_SMALL);
 
                     ui.label(egui::RichText::new("Fecha").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
@@ -281,7 +331,8 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                                 let notes   = if state.payment_notes.trim().is_empty() { None } else { Some(state.payment_notes.trim().to_owned()) };
                                 match PaymentCreateUseCase::new(make_payment_repo(client))
                                     .execute(PaymentCreateInput {
-                                        student_id:     student.id,
+                                        student_id:    student.id,
+                                        enrollment_id: state.payment_enrollment_id,
                                         amount_cents,
                                         payment_method: state.payment_method.clone(),
                                         paid_at,
@@ -289,16 +340,20 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                                     }) {
                                     Ok(_) => {
                                         push_success(notifs, "Pago registrado");
-                                        state.show_payment_form   = false;
-                                        state.payment_amount      = String::new();
-                                        state.needs_reload_ledger = true;
+                                        state.show_payment_form       = false;
+                                        state.payment_amount          = String::new();
+                                        state.payment_enrollment_id   = None;
+                                        state.payment_enroll_options  = Vec::new();
+                                        state.needs_reload_ledger     = true;
                                     }
                                     Err(e) => push_error(notifs, e.to_string()),
                                 }
                             }
                             if ui.button("Cancelar").clicked() {
-                                state.show_payment_form = false;
-                                state.payment_amount    = String::new();
+                                state.show_payment_form      = false;
+                                state.payment_amount         = String::new();
+                                state.payment_enrollment_id  = None;
+                                state.payment_enroll_options = Vec::new();
                             }
                         });
                     });
@@ -316,14 +371,12 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
         .column(Column::remainder())
         .column(Column::remainder())
         .column(Column::remainder())
-        .column(Column::remainder())
         .column(Column::auto())
         .header(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut header| {
             header.col(|ui| { ui.label("Fecha"); });
             header.col(|ui| { ui.label("Descripción"); });
             header.col(|ui| { ui.label("Método"); });
             header.col(|ui| { ui.label("Monto"); });
-            header.col(|ui| { ui.label("Balance"); });
             header.col(|ui| { ui.label("Acciones"); });
         })
         .body(|mut body| {
@@ -339,31 +392,23 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                     });
                     row.col(|ui| {
                         match entry.kind {
-                            LedgerKind::Debt => ui.colored_label(
-                                colors::RED,
-                                format!("-{}", fmt_ars(entry.amount_cents)),
-                            ),
-                            LedgerKind::Credit => ui.colored_label(
-                                colors::GREEN,
-                                format!("+{}", fmt_ars(entry.amount_cents)),
-                            ),
+                            LedgerKind::Pending => {
+                                ui.colored_label(colors::LIGHT_GRAY, "pendiente");
+                            }
+                            LedgerKind::Credit => {
+                                ui.colored_label(
+                                    colors::GREEN,
+                                    format!("+{}", fmt_ars(entry.amount_cents.unwrap_or(0))),
+                                );
+                            }
                         };
-                    });
-                    row.col(|ui| {
-                        let color = if entry.running_balance < 0 {
-                            colors::RED
-                        } else {
-                            colors::GREEN
-                        };
-                        let sign = if entry.running_balance < 0 { "" } else { "+" };
-                        ui.colored_label(color, format!("{sign}{}", fmt_ars(entry.running_balance)));
                     });
                     row.col(|ui| {
                         if ui.small_button(egui_phosphor::regular::TRASH).clicked() {
                             action = Some((
                                 match entry.kind {
-                                    LedgerKind::Debt   => LedgerAction::DeleteEnrollment,
-                                    LedgerKind::Credit => LedgerAction::DeletePayment,
+                                    LedgerKind::Pending => LedgerAction::DeleteEnrollment,
+                                    LedgerKind::Credit  => LedgerAction::DeletePayment,
                                 },
                                 entry.id,
                             ));
@@ -391,32 +436,21 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     }
 }
 
+fn auto_fill_amount(state: &mut StudentsState) {
+    let eid = match state.payment_enrollment_id { Some(id) => id, None => return };
+    let course_id = match state.payment_enroll_options.iter().find(|(id, _, _)| *id == eid) {
+        Some((_, _, cid)) => *cid,
+        None => return,
+    };
+    let course = match state.enroll_courses.iter().find(|c| c.id == course_id) {
+        Some(c) => c,
+        None => return,
+    };
+    let price = match state.payment_method.as_str() {
+        "transfer" => course.month_price_transfer_cents,
+        _          => course.month_price_cash_cents,
+    };
+    state.payment_amount = format!("{:.2}", price as f64 / 100.0);
+}
+
 enum LedgerAction { DeleteEnrollment, DeletePayment }
-
-const PAYMENT_METHODS: &[(&str, &str)] = &[
-    ("cash",     "Efectivo"),
-    ("transfer", "Transferencia"),
-    ("card",     "Tarjeta"),
-    ("discount", "Descuento"),
-];
-
-fn method_label(method: &str) -> &str {
-    PAYMENT_METHODS.iter()
-        .find(|(val, _)| *val == method)
-        .map(|(_, label)| *label)
-        .unwrap_or("Efectivo")
-}
-
-fn today() -> NaiveDate {
-    use chrono::{Datelike, Local};
-    let n = Local::now();
-    NaiveDate::from_ymd_opt(n.year(), n.month(), n.day()).unwrap()
-}
-
-fn naive_date_to_utc(date: NaiveDate) -> chrono::DateTime<Utc> {
-    Utc.from_utc_datetime(&date.and_hms_opt(12, 0, 0).unwrap())
-}
-
-fn parse_cents(s: &str) -> Option<i32> {
-    s.trim().parse::<f64>().ok().map(|f| (f * 100.0).round() as i32).filter(|&c| c > 0)
-}

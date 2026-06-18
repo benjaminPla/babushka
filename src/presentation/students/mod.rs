@@ -49,7 +49,7 @@ pub struct StudentsState {
     // detail
     pub selected_student:    Option<StudentDto>,
     pub ledger:              Vec<LedgerEntry>,
-    pub balance_cents:       i32,
+    pub pending_count:       usize,
     pub needs_reload_ledger: bool,
 
     // enroll modal
@@ -62,11 +62,13 @@ pub struct StudentsState {
     pub enroll_period_filter: String,
 
     // payment modal
-    pub show_payment_form:   bool,
-    pub payment_amount:      String,
-    pub payment_method:      String,
-    pub payment_paid_at:     NaiveDate,
-    pub payment_notes:       String,
+    pub show_payment_form:        bool,
+    pub payment_amount:           String,
+    pub payment_method:           String,
+    pub payment_paid_at:          NaiveDate,
+    pub payment_notes:            String,
+    pub payment_enrollment_id:    Option<Uuid>,
+    pub payment_enroll_options:   Vec<(Uuid, String, Uuid)>,  // (enrollment_id, label, course_id)
 
     pub confirm_delete: Option<Uuid>,
 }
@@ -97,7 +99,7 @@ impl Default for StudentsState {
             updated_at:        String::new(),
             selected_student:    None,
             ledger:              Vec::new(),
-            balance_cents:       0,
+            pending_count:       0,
             needs_reload_ledger: false,
             show_enroll_form:     false,
             enroll_courses:       Vec::new(),
@@ -106,11 +108,13 @@ impl Default for StudentsState {
             enroll_periods:       Vec::new(),
             enroll_sel_period:    None,
             enroll_period_filter: String::new(),
-            show_payment_form: false,
-            payment_amount:    String::new(),
-            payment_method:    "cash".into(),
-            payment_paid_at:   today(),
-            payment_notes:     String::new(),
+            show_payment_form:        false,
+            payment_amount:           String::new(),
+            payment_method:           "cash".into(),
+            payment_paid_at:          today(),
+            payment_notes:            String::new(),
+            payment_enrollment_id:    None,
+            payment_enroll_options:   Vec::new(),
             confirm_delete:    None,
         }
     }
@@ -132,7 +136,7 @@ pub fn make_course_period_repo(client: &Arc<Mutex<Client>>) -> Arc<CoursePeriodP
 pub fn clear_detail_state(state: &mut StudentsState) {
     state.selected_student    = None;
     state.ledger              = Vec::new();
-    state.balance_cents       = 0;
+    state.pending_count       = 0;
     state.needs_reload_ledger = false;
     state.show_enroll_form     = false;
     state.enroll_courses       = Vec::new();
@@ -141,11 +145,13 @@ pub fn clear_detail_state(state: &mut StudentsState) {
     state.enroll_periods       = Vec::new();
     state.enroll_sel_period    = None;
     state.enroll_period_filter = String::new();
-    state.show_payment_form = false;
-    state.payment_amount    = String::new();
-    state.payment_method    = "cash".into();
-    state.payment_paid_at   = today();
-    state.payment_notes     = String::new();
+    state.show_payment_form        = false;
+    state.payment_amount           = String::new();
+    state.payment_method           = "cash".into();
+    state.payment_paid_at          = today();
+    state.payment_notes            = String::new();
+    state.payment_enrollment_id    = None;
+    state.payment_enroll_options   = Vec::new();
     state.confirm_delete    = None;
 }
 

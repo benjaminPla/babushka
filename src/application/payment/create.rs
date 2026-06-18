@@ -10,6 +10,7 @@ use crate::domain::payment::Payment;
 
 pub struct PaymentCreateInput {
     pub student_id:     Uuid,
+    pub enrollment_id:  Option<Uuid>,
     pub amount_cents:   i32,
     pub payment_method: String,
     pub paid_at:        DateTime<Utc>,
@@ -29,7 +30,7 @@ impl PaymentCreateUseCase {
         }
         let method = PaymentMethod::new(&input.payment_method)
             .map_err(|e| PaymentAppError::Validation(e.to_string()))?;
-        let payment = Payment::new(input.amount_cents, input.notes, input.paid_at, method, input.student_id);
+        let payment = Payment::new(input.amount_cents, input.enrollment_id, input.notes, input.paid_at, method, input.student_id);
         self.payment_repo.create(&payment)?;
         log::info!("[payment] created: id={} student={} method={} paid_at={}",
             payment.id(), input.student_id, input.payment_method, input.paid_at);
