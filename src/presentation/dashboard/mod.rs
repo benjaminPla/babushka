@@ -50,13 +50,16 @@ fn today() -> NaiveDate {
 }
 
 pub struct DashboardState {
-    pub debtors:         Vec<DebtorRow>,
-    pub students_adult:  usize,
-    pub students_minor:  usize,
-    pub courses_adult:   usize,
-    pub courses_minor:   usize,
-    pub teachers_total:  usize,
-    pub needs_reload:    bool,
+    pub debtors:            Vec<DebtorRow>,
+    pub students_adult:     usize,
+    pub students_minor:     usize,
+    pub courses_adult:      usize,
+    pub courses_minor:      usize,
+    pub teachers_total:     usize,
+    pub income_last_month:  i32,
+    pub income_this_month:  i32,
+    pub income_next_month:  i32,
+    pub needs_reload:       bool,
 
     // debtors table filters
     pub filter_student: String,
@@ -90,13 +93,16 @@ pub struct DashboardState {
 impl Default for DashboardState {
     fn default() -> Self {
         Self {
-            debtors:        Vec::new(),
-            students_adult: 0,
-            students_minor: 0,
-            courses_adult:  0,
-            courses_minor:  0,
-            teachers_total: 0,
-            needs_reload:   true,
+            debtors:           Vec::new(),
+            students_adult:    0,
+            students_minor:    0,
+            courses_adult:     0,
+            courses_minor:     0,
+            teachers_total:    0,
+            income_last_month: 0,
+            income_this_month: 0,
+            income_next_month: 0,
+            needs_reload:      true,
             filter_student: String::new(),
             filter_course:  String::new(),
             show_enroll_form:      false,
@@ -149,13 +155,16 @@ pub fn show(
             Arc::clone(teacher_repo),
         );
         match uc.load() {
-            Ok(DashboardData { debtors, students_adult, students_minor, courses_adult, courses_minor, teachers_total }) => {
-                state.debtors        = debtors;
-                state.students_adult = students_adult;
-                state.students_minor = students_minor;
-                state.courses_adult  = courses_adult;
-                state.courses_minor  = courses_minor;
-                state.teachers_total = teachers_total;
+            Ok(DashboardData { debtors, students_adult, students_minor, courses_adult, courses_minor, teachers_total, income_last_month, income_this_month, income_next_month }) => {
+                state.debtors           = debtors;
+                state.students_adult    = students_adult;
+                state.students_minor    = students_minor;
+                state.courses_adult     = courses_adult;
+                state.courses_minor     = courses_minor;
+                state.teachers_total    = teachers_total;
+                state.income_last_month = income_last_month;
+                state.income_this_month = income_this_month;
+                state.income_next_month = income_next_month;
             }
             Err(e) => push_error(notifs, e.to_string()),
         }
@@ -428,52 +437,79 @@ pub fn show(
     }
 
     // ── Summary widgets ───────────────────────────────────────────────────────
-    ui.columns(3, |cols| {
-        cols[0].label(egui::RichText::new("Alumnos").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
-        cols[0].add_space(sizes::SPACING_SMALL);
-        egui::Grid::new("dash_students")
-            .num_columns(2)
-            .spacing([sizes::SPACING_NORMAL, sizes::SPACING_SMALL])
-            .show(&mut cols[0], |ui| {
-                ui.label(egui::RichText::new("Adultos").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                ui.label(egui::RichText::new(state.students_adult.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-                ui.end_row();
-                ui.label(egui::RichText::new("Menores").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                ui.label(egui::RichText::new(state.students_minor.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-                ui.end_row();
-                ui.label(egui::RichText::new("Total").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                ui.label(egui::RichText::new((state.students_adult + state.students_minor).to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-                ui.end_row();
-            });
+    {
+        let now   = Local::now();
+        let (y, m) = (now.year(), now.month());
+        let last_ym = if m == 1 { (y - 1, 12) } else { (y, m - 1) };
+        let next_ym = if m == 12 { (y + 1, 1) } else { (y, m + 1) };
 
-        cols[1].label(egui::RichText::new("Cursos").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
-        cols[1].add_space(sizes::SPACING_SMALL);
-        egui::Grid::new("dash_courses")
-            .num_columns(2)
-            .spacing([sizes::SPACING_NORMAL, sizes::SPACING_SMALL])
-            .show(&mut cols[1], |ui| {
-                ui.label(egui::RichText::new("Adultos").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                ui.label(egui::RichText::new(state.courses_adult.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-                ui.end_row();
-                ui.label(egui::RichText::new("Menores").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                ui.label(egui::RichText::new(state.courses_minor.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-                ui.end_row();
-                ui.label(egui::RichText::new("Total").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                ui.label(egui::RichText::new((state.courses_adult + state.courses_minor).to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-                ui.end_row();
-            });
+        const MONTHS_ES: [&str; 12] = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+        let label = |yr: i32, mo: u32| format!("{} {}", MONTHS_ES[(mo - 1) as usize], yr);
 
-        cols[2].label(egui::RichText::new("Profesores").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
-        cols[2].add_space(sizes::SPACING_SMALL);
-        egui::Grid::new("dash_teachers")
-            .num_columns(2)
-            .spacing([sizes::SPACING_NORMAL, sizes::SPACING_SMALL])
-            .show(&mut cols[2], |ui| {
-                ui.label(egui::RichText::new("Total").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                ui.label(egui::RichText::new(state.teachers_total.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-                ui.end_row();
-            });
-    });
+        ui.columns(4, |cols| {
+            cols[0].label(egui::RichText::new("Alumnos").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
+            cols[0].add_space(sizes::SPACING_SMALL);
+            egui::Grid::new("dash_students")
+                .num_columns(2)
+                .spacing([sizes::SPACING_NORMAL, sizes::SPACING_SMALL])
+                .show(&mut cols[0], |ui| {
+                    ui.label(egui::RichText::new("Adultos").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.label(egui::RichText::new(state.students_adult.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+                    ui.end_row();
+                    ui.label(egui::RichText::new("Menores").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.label(egui::RichText::new(state.students_minor.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+                    ui.end_row();
+                    ui.label(egui::RichText::new("Total").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.label(egui::RichText::new((state.students_adult + state.students_minor).to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+                    ui.end_row();
+                });
+
+            cols[1].label(egui::RichText::new("Cursos").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
+            cols[1].add_space(sizes::SPACING_SMALL);
+            egui::Grid::new("dash_courses")
+                .num_columns(2)
+                .spacing([sizes::SPACING_NORMAL, sizes::SPACING_SMALL])
+                .show(&mut cols[1], |ui| {
+                    ui.label(egui::RichText::new("Adultos").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.label(egui::RichText::new(state.courses_adult.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+                    ui.end_row();
+                    ui.label(egui::RichText::new("Menores").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.label(egui::RichText::new(state.courses_minor.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+                    ui.end_row();
+                    ui.label(egui::RichText::new("Total").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.label(egui::RichText::new((state.courses_adult + state.courses_minor).to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+                    ui.end_row();
+                });
+
+            cols[2].label(egui::RichText::new("Profesores").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
+            cols[2].add_space(sizes::SPACING_SMALL);
+            egui::Grid::new("dash_teachers")
+                .num_columns(2)
+                .spacing([sizes::SPACING_NORMAL, sizes::SPACING_SMALL])
+                .show(&mut cols[2], |ui| {
+                    ui.label(egui::RichText::new("Total").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.label(egui::RichText::new(state.teachers_total.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+                    ui.end_row();
+                });
+
+            cols[3].label(egui::RichText::new("Ingresos").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
+            cols[3].add_space(sizes::SPACING_SMALL);
+            egui::Grid::new("dash_income")
+                .num_columns(2)
+                .spacing([sizes::SPACING_NORMAL, sizes::SPACING_SMALL])
+                .show(&mut cols[3], |ui| {
+                    ui.label(egui::RichText::new(label(last_ym.0, last_ym.1)).color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.label(egui::RichText::new(fmt_ars(state.income_last_month)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+                    ui.end_row();
+                    ui.label(egui::RichText::new(label(y, m)).color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.label(egui::RichText::new(fmt_ars(state.income_this_month)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+                    ui.end_row();
+                    ui.label(egui::RichText::new(format!("{} ~", label(next_ym.0, next_ym.1))).color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.label(egui::RichText::new(fmt_ars(state.income_next_month)).color(colors::YELLOW).size(sizes::FONT_SIZE_NORMAL));
+                    ui.end_row();
+                });
+        });
+    }
 
     ui.add_space(sizes::SPACING_NORMAL);
     ui.separator();

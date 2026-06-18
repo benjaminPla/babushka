@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use postgres::{Client, Row};
 use uuid::Uuid;
 
@@ -118,6 +118,37 @@ impl EnrollmentRepo for EnrollmentPgRepo {
             .query(&query, &[&course_id])
             .map_err(pg_err)?;
         rows.iter().map(row_to_enrollment).collect()
+    }
+
+    fn sum_paid_between(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<i32, EnrollmentRepoError> {
+        let row = self.client.lock().unwrap()
+            .query_one(
+                "SELECT COALESCE(SUM(paid_amount_cents), 0)::int AS total
+                 FROM enrollments
+                 WHERE paid_at >= $1 AND paid_at < $2",
+                &[&from, &to],
+            )
+            .map_err(pg_err)?;
+        Ok(row.get::<_, i32>("total"))
+    }
+
+    fn sum_expected_in_month(&self, from: NaiveDate, to: NaiveDate) -> Result<i32, EnrollmentRepoError> {
+        let row = self.client.lock().unwrap()
+            .query_one(
+                "SELECT COALESCE(SUM(
+                     CASE WHEN e.pricing_type = 'monthly'
+                          THEN c.month_price_cash_cents
+                          ELSE c.class_price_cash_cents
+                     END
+                 ), 0)::int AS total
+                 FROM enrollments e
+                 JOIN course_periods cp ON cp.id = e.course_period_id
+                 JOIN courses        c  ON c.id  = cp.course_id
+                 WHERE cp.start_date >= $1 AND cp.start_date < $2",
+                &[&from, &to],
+            )
+            .map_err(pg_err)?;
+        Ok(row.get::<_, i32>("total"))
     }
 
     fn pay(&self, id: Uuid, amount_cents: i32, method: PaymentMethod, paid_at: DateTime<Utc>, notes: Option<String>) -> Result<(), EnrollmentRepoError> {

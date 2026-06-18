@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use chrono::{Datelike, Local, NaiveDate, TimeZone, Utc};
 use uuid::Uuid;
 
 use crate::domain::course::repository::CourseRepo;
@@ -21,12 +22,15 @@ pub struct DebtorRow {
 }
 
 pub struct DashboardData {
-    pub debtors:         Vec<DebtorRow>,
-    pub students_adult:  usize,
-    pub students_minor:  usize,
-    pub courses_adult:   usize,
-    pub courses_minor:   usize,
-    pub teachers_total:  usize,
+    pub debtors:            Vec<DebtorRow>,
+    pub students_adult:     usize,
+    pub students_minor:     usize,
+    pub courses_adult:      usize,
+    pub courses_minor:      usize,
+    pub teachers_total:     usize,
+    pub income_last_month:  i32,
+    pub income_this_month:  i32,
+    pub income_next_month:  i32,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -88,6 +92,28 @@ impl DashboardUseCase {
 
         debtors.sort_by(|a, b| a.full_name.cmp(&b.full_name).then(a.course_and_period.cmp(&b.course_and_period)));
 
+        let today    = Local::now();
+        let (y, m)   = (today.year(), today.month());
+        let this_m   = NaiveDate::from_ymd_opt(y, m, 1).unwrap();
+        let last_m   = if m == 1 { NaiveDate::from_ymd_opt(y - 1, 12, 1).unwrap() }
+                       else      { NaiveDate::from_ymd_opt(y, m - 1, 1).unwrap() };
+        let next_m   = if m == 12 { NaiveDate::from_ymd_opt(y + 1, 1, 1).unwrap() }
+                       else       { NaiveDate::from_ymd_opt(y, m + 1, 1).unwrap() };
+        let after_next = if next_m.month() == 12 { NaiveDate::from_ymd_opt(next_m.year() + 1, 1, 1).unwrap() }
+                         else                     { NaiveDate::from_ymd_opt(next_m.year(), next_m.month() + 1, 1).unwrap() };
+
+        let to_utc = |d: NaiveDate| Utc.from_utc_datetime(&d.and_hms_opt(0, 0, 0).unwrap());
+
+        let income_last_month = self.enrollment_repo
+            .sum_paid_between(to_utc(last_m), to_utc(this_m))
+            .map_err(|_| DashboardError::Database)?;
+        let income_this_month = self.enrollment_repo
+            .sum_paid_between(to_utc(this_m), to_utc(next_m))
+            .map_err(|_| DashboardError::Database)?;
+        let income_next_month = self.enrollment_repo
+            .sum_expected_in_month(next_m, after_next)
+            .map_err(|_| DashboardError::Database)?;
+
         Ok(DashboardData {
             debtors,
             students_adult,
@@ -95,6 +121,9 @@ impl DashboardUseCase {
             courses_adult,
             courses_minor,
             teachers_total: teachers.len(),
+            income_last_month,
+            income_this_month,
+            income_next_month,
         })
     }
 }
