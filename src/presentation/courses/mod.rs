@@ -41,9 +41,11 @@ pub struct CoursesState {
     pub teacher_id:   Option<Uuid>,
     pub teachers:     Vec<TeacherDto>,
     pub age_group:    AgeGroup,
-    pub capacity:     String,
-    pub price:        String,
-    pub class_price:  String,
+    pub capacity:               String,
+    pub month_price_cash:       String,
+    pub month_price_transfer:   String,
+    pub class_price_cash:       String,
+    pub class_price_transfer:   String,
     pub course_notes: String,
 
     // detail
@@ -78,9 +80,11 @@ impl Default for CoursesState {
             teacher_id:   None,
             teachers:     Vec::new(),
             age_group:    AgeGroup::Adult,
-            capacity:     String::new(),
-            price:        String::new(),
-            class_price:  String::new(),
+            capacity:             String::new(),
+            month_price_cash:     String::new(),
+            month_price_transfer: String::new(),
+            class_price_cash:     String::new(),
+            class_price_transfer: String::new(),
             course_notes: String::new(),
             selected_course:      None,
             periods:              Vec::new(),
@@ -115,9 +119,11 @@ pub fn clear_course_form(state: &mut CoursesState) {
     state.name         = String::new();
     state.teacher_id   = None;
     state.age_group    = AgeGroup::Adult;
-    state.capacity     = String::new();
-    state.price        = String::new();
-    state.class_price  = String::new();
+    state.capacity             = String::new();
+    state.month_price_cash     = String::new();
+    state.month_price_transfer = String::new();
+    state.class_price_cash     = String::new();
+    state.class_price_transfer = String::new();
     state.course_notes = String::new();
     state.created_at   = String::new();
     state.updated_at   = String::new();

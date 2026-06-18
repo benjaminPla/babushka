@@ -45,26 +45,38 @@ fn row_to_course(row: &Row) -> Result<Course, CourseRepoError> {
     let name:              String         = row.get("name");
     let age_group:         String         = row.get("age_group_text");
     let capacity:          i16            = row.get("capacity");
-    let month_price_cents: i32            = row.get("month_price_cents");
-    let class_price_cents: i32            = row.get("class_price_cents");
+    let month_price_cash_cents:     i32 = row.get("month_price_cash_cents");
+    let month_price_transfer_cents: i32 = row.get("month_price_transfer_cents");
+    let class_price_cash_cents:     i32 = row.get("class_price_cash_cents");
+    let class_price_transfer_cents: i32 = row.get("class_price_transfer_cents");
     let notes:             Option<String> = row.get("notes");
     let created_at:        DateTime<Utc>  = row.get("created_at");
     let updated_at:        DateTime<Utc>  = row.get("updated_at");
 
     let age_group         = AgeGroup::from_db_str(&age_group).ok_or_else(|| CourseRepoError::Database(format!("unknown age_group: {age_group}")))?;
     let capacity          = CourseCapacity::new(capacity).map_err(db_err)?;
-    let class_price_cents = Cents::new(class_price_cents).map_err(db_err)?;
-    let month_price_cents = Cents::new(month_price_cents).map_err(db_err)?;
-    let name              = CourseName::new(name).map_err(db_err)?;
-    let notes             = notes.map(|s| Notes::new(s).map_err(db_err)).transpose()?;
+    let class_price_cash_cents     = Cents::new(class_price_cash_cents).map_err(db_err)?;
+    let class_price_transfer_cents = Cents::new(class_price_transfer_cents).map_err(db_err)?;
+    let month_price_cash_cents     = Cents::new(month_price_cash_cents).map_err(db_err)?;
+    let month_price_transfer_cents = Cents::new(month_price_transfer_cents).map_err(db_err)?;
+    let name                       = CourseName::new(name).map_err(db_err)?;
+    let notes                      = notes.map(|s| Notes::new(s).map_err(db_err)).transpose()?;
 
-    Ok(Course::reconstitute(age_group, capacity, class_price_cents, created_at, id, month_price_cents, name, notes, teacher_id, updated_at))
+    Ok(Course::reconstitute(
+        age_group, capacity,
+        class_price_cash_cents, class_price_transfer_cents,
+        created_at, id,
+        month_price_cash_cents, month_price_transfer_cents,
+        name, notes, teacher_id, updated_at,
+    ))
 }
 
 const SELECT: &str = "
     SELECT id, teacher_id, name, age_group::text AS age_group_text,
-           capacity, month_price_cents, class_price_cents, notes,
-           created_at, updated_at
+           capacity,
+           month_price_cash_cents, month_price_transfer_cents,
+           class_price_cash_cents, class_price_transfer_cents,
+           notes, created_at, updated_at
     FROM courses";
 
 impl CourseRepo for CoursePgRepo {
@@ -72,14 +84,18 @@ impl CourseRepo for CoursePgRepo {
         let notes = course.notes().map(str::to_owned);
         self.client.lock().unwrap()
             .execute(
-                "INSERT INTO courses (id, teacher_id, name, age_group, capacity, month_price_cents, class_price_cents, notes)
-                 VALUES ($1, $2, $3, $4::text::age_group, $5, $6, $7, $8)",
+                "INSERT INTO courses (id, teacher_id, name, age_group, capacity,
+                                     month_price_cash_cents, month_price_transfer_cents,
+                                     class_price_cash_cents, class_price_transfer_cents, notes)
+                 VALUES ($1, $2, $3, $4::text::age_group, $5, $6, $7, $8, $9, $10)",
                 &[
                     &course.id(), &course.teacher_id(), &course.name(),
                     &course.age_group().as_db_str(),
                     &course.capacity().value(),
-                    &course.month_price_cents().value(),
-                    &course.class_price_cents().value(),
+                    &course.month_price_cash_cents().value(),
+                    &course.month_price_transfer_cents().value(),
+                    &course.class_price_cash_cents().value(),
+                    &course.class_price_transfer_cents().value(),
                     &notes,
                 ],
             )
@@ -118,14 +134,19 @@ impl CourseRepo for CoursePgRepo {
             .execute(
                 "UPDATE courses
                  SET teacher_id = $1, name = $2, age_group = $3::text::age_group,
-                     capacity = $4, month_price_cents = $5, class_price_cents = $6, notes = $7
-                 WHERE id = $8",
+                     capacity = $4,
+                     month_price_cash_cents = $5, month_price_transfer_cents = $6,
+                     class_price_cash_cents = $7, class_price_transfer_cents = $8,
+                     notes = $9
+                 WHERE id = $10",
                 &[
                     &course.teacher_id(), &course.name(),
                     &course.age_group().as_db_str(),
                     &course.capacity().value(),
-                    &course.month_price_cents().value(),
-                    &course.class_price_cents().value(),
+                    &course.month_price_cash_cents().value(),
+                    &course.month_price_transfer_cents().value(),
+                    &course.class_price_cash_cents().value(),
+                    &course.class_price_transfer_cents().value(),
                     &notes, &course.id(),
                 ],
             )

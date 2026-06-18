@@ -11,14 +11,16 @@ use crate::domain::shared::value_objects::cents::Cents;
 use crate::domain::shared::value_objects::notes::Notes;
 
 pub struct CourseUpdateInput {
-    pub id:                Uuid,
-    pub age_group:         AgeGroup,
-    pub capacity:          i16,
-    pub class_price_cents: i32,
-    pub month_price_cents: i32,
-    pub name:              String,
-    pub notes:             Option<String>,
-    pub teacher_id:        Uuid,
+    pub id:                         Uuid,
+    pub age_group:                  AgeGroup,
+    pub capacity:                   i16,
+    pub class_price_cash_cents:     i32,
+    pub class_price_transfer_cents: i32,
+    pub month_price_cash_cents:     i32,
+    pub month_price_transfer_cents: i32,
+    pub name:                       String,
+    pub notes:                      Option<String>,
+    pub teacher_id:                 Uuid,
 }
 
 pub struct CourseUpdateUseCase {
@@ -29,12 +31,14 @@ impl CourseUpdateUseCase {
     pub fn new(course_repo: Arc<dyn CourseRepo>) -> Self { Self { course_repo } }
 
     pub fn execute(&self, input: CourseUpdateInput) -> Result<(), CourseAppError> {
-        let course            = self.course_repo.get_by_id(input.id)?;
-        let capacity          = CourseCapacity::new(input.capacity)?;
-        let class_price_cents = Cents::new(input.class_price_cents)?;
-        let month_price_cents = Cents::new(input.month_price_cents)?;
-        let name              = CourseName::new(input.name)?;
-        let notes             = input.notes.map(Notes::new).transpose()?;
+        let course                     = self.course_repo.get_by_id(input.id)?;
+        let capacity                   = CourseCapacity::new(input.capacity)?;
+        let class_price_cash_cents     = Cents::new(input.class_price_cash_cents)?;
+        let class_price_transfer_cents = Cents::new(input.class_price_transfer_cents)?;
+        let month_price_cash_cents     = Cents::new(input.month_price_cash_cents)?;
+        let month_price_transfer_cents = Cents::new(input.month_price_transfer_cents)?;
+        let name                       = CourseName::new(input.name)?;
+        let notes                      = input.notes.map(Notes::new).transpose()?;
 
         // Prevent lowering capacity below current enrollment count
         let enrolled = self.course_repo.count_enrollments(input.id)?;
@@ -54,7 +58,12 @@ impl CourseUpdateUseCase {
             }
         }
 
-        let updated = course.update(input.age_group, capacity, class_price_cents, month_price_cents, name, notes, input.teacher_id);
+        let updated = course.update(
+            input.age_group, capacity,
+            class_price_cash_cents, class_price_transfer_cents,
+            month_price_cash_cents, month_price_transfer_cents,
+            name, notes, input.teacher_id,
+        );
         self.course_repo.update(&updated)?;
         log::info!("[course] updated: id={}", input.id);
         Ok(())

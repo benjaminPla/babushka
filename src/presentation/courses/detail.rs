@@ -81,12 +81,20 @@ pub fn show(
         ui.label(egui::RichText::new(course.capacity.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
         ui.end_row();
 
-        ui.label(egui::RichText::new("Precio mensual").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(format_price(course.month_price_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+        ui.label(egui::RichText::new("Mensual efectivo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+        ui.label(egui::RichText::new(format_price(course.month_price_cash_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
         ui.end_row();
 
-        ui.label(egui::RichText::new("Precio clase").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(format_price(course.class_price_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+        ui.label(egui::RichText::new("Mensual transferencia").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+        ui.label(egui::RichText::new(format_price(course.month_price_transfer_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+        ui.end_row();
+
+        ui.label(egui::RichText::new("Clase efectivo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+        ui.label(egui::RichText::new(format_price(course.class_price_cash_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+        ui.end_row();
+
+        ui.label(egui::RichText::new("Clase transferencia").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+        ui.label(egui::RichText::new(format_price(course.class_price_transfer_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
         ui.end_row();
 
         if let Some(n) = &course.notes {

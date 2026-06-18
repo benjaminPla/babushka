@@ -61,12 +61,20 @@ pub fn show(ctx: &egui::Context, repo: &Arc<dyn CourseRepo>, state: &mut Courses
                 ui.add_sized([ui.available_width(), 0.0], egui::TextEdit::singleline(&mut state.capacity));
                 ui.add_space(sizes::SPACING_SMALL);
 
-                ui.label(egui::RichText::new("Precio mensual").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                ui.add_sized([ui.available_width(), 0.0], egui::TextEdit::singleline(&mut state.price));
+                ui.label(egui::RichText::new("Mensual efectivo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                ui.add_sized([ui.available_width(), 0.0], egui::TextEdit::singleline(&mut state.month_price_cash));
                 ui.add_space(sizes::SPACING_SMALL);
 
-                ui.label(egui::RichText::new("Precio por clase").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                ui.add_sized([ui.available_width(), 0.0], egui::TextEdit::singleline(&mut state.class_price));
+                ui.label(egui::RichText::new("Mensual transferencia").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                ui.add_sized([ui.available_width(), 0.0], egui::TextEdit::singleline(&mut state.month_price_transfer));
+                ui.add_space(sizes::SPACING_SMALL);
+
+                ui.label(egui::RichText::new("Clase efectivo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                ui.add_sized([ui.available_width(), 0.0], egui::TextEdit::singleline(&mut state.class_price_cash));
+                ui.add_space(sizes::SPACING_SMALL);
+
+                ui.label(egui::RichText::new("Clase transferencia").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                ui.add_sized([ui.available_width(), 0.0], egui::TextEdit::singleline(&mut state.class_price_transfer));
                 ui.add_space(sizes::SPACING_SMALL);
 
                 ui.label(egui::RichText::new("Notas").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
@@ -90,13 +98,21 @@ pub fn show(ctx: &egui::Context, repo: &Arc<dyn CourseRepo>, state: &mut Courses
                                 Ok(v)  => v,
                                 Err(_) => { push_error(notifs, "Capacidad inválida"); return; }
                             };
-                            let month_price_cents = match parse_price(&state.price) {
+                            let month_price_cash_cents = match parse_price(&state.month_price_cash) {
                                 Some(v) => v,
-                                None    => { push_error(notifs, "Precio mensual inválido"); return; }
+                                None    => { push_error(notifs, "Mensual efectivo inválido"); return; }
                             };
-                            let class_price_cents = match parse_price(&state.class_price) {
+                            let month_price_transfer_cents = match parse_price(&state.month_price_transfer) {
                                 Some(v) => v,
-                                None    => { push_error(notifs, "Precio por clase inválido"); return; }
+                                None    => { push_error(notifs, "Mensual transferencia inválido"); return; }
+                            };
+                            let class_price_cash_cents = match parse_price(&state.class_price_cash) {
+                                Some(v) => v,
+                                None    => { push_error(notifs, "Clase efectivo inválido"); return; }
+                            };
+                            let class_price_transfer_cents = match parse_price(&state.class_price_transfer) {
+                                Some(v) => v,
+                                None    => { push_error(notifs, "Clase transferencia inválido"); return; }
                             };
                             let notes = if state.course_notes.trim().is_empty() { None } else { Some(state.course_notes.clone()) };
 
@@ -107,8 +123,10 @@ pub fn show(ctx: &egui::Context, repo: &Arc<dyn CourseRepo>, state: &mut Courses
                                     name: state.name.clone(),
                                     age_group: state.age_group,
                                     capacity,
-                                    month_price_cents,
-                                    class_price_cents,
+                                    month_price_cash_cents,
+                                    month_price_transfer_cents,
+                                    class_price_cash_cents,
+                                    class_price_transfer_cents,
                                     notes,
                                 })
                             } else {
@@ -117,8 +135,10 @@ pub fn show(ctx: &egui::Context, repo: &Arc<dyn CourseRepo>, state: &mut Courses
                                     name: state.name.clone(),
                                     age_group: state.age_group,
                                     capacity,
-                                    month_price_cents,
-                                    class_price_cents,
+                                    month_price_cash_cents,
+                                    month_price_transfer_cents,
+                                    class_price_cash_cents,
+                                    class_price_transfer_cents,
                                     notes,
                                 })
                             };

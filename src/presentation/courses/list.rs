@@ -64,8 +64,8 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn CourseRepo>, client: &Arc<Mutex<Cl
                     row.col(|ui| { ui.label(&c.name); });
                     row.col(|ui| { ui.label(c.age_group.label()); });
                     row.col(|ui| { ui.label(c.capacity.to_string()); });
-                    row.col(|ui| { ui.label(format_price(c.month_price_cents)); });
-                    row.col(|ui| { ui.label(format_price(c.class_price_cents)); });
+                    row.col(|ui| { ui.label(format!("{} / {}", format_price(c.month_price_cash_cents), format_price(c.month_price_transfer_cents))); });
+                    row.col(|ui| { ui.label(format!("{} / {}", format_price(c.class_price_cash_cents), format_price(c.class_price_transfer_cents))); });
                     row.col(|ui| {
                         if ui.small_button(egui_phosphor::regular::EYE).clicked()           { action = Some((Action::Open,   c.id)); }
                         if ui.small_button(egui_phosphor::regular::PENCIL_SIMPLE).clicked() { action = Some((Action::Edit,   c.id)); }
@@ -91,8 +91,10 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn CourseRepo>, client: &Arc<Mutex<Cl
                     state.teacher_id   = Some(c.teacher_id);
                     state.age_group    = c.age_group;
                     state.capacity     = c.capacity.to_string();
-                    state.price        = (c.month_price_cents as f64 / 100.0).to_string();
-                    state.class_price  = (c.class_price_cents  as f64 / 100.0).to_string();
+                    state.month_price_cash     = (c.month_price_cash_cents     as f64 / 100.0).to_string();
+                    state.month_price_transfer = (c.month_price_transfer_cents as f64 / 100.0).to_string();
+                    state.class_price_cash     = (c.class_price_cash_cents     as f64 / 100.0).to_string();
+                    state.class_price_transfer = (c.class_price_transfer_cents as f64 / 100.0).to_string();
                     state.course_notes = c.notes.clone().unwrap_or_default();
                     state.created_at   = fmt_dt(c.created_at);
                     state.updated_at   = fmt_dt(c.updated_at);
