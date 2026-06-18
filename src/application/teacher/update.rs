@@ -30,7 +30,7 @@ impl TeacherUpdateUseCase {
 
     pub fn execute(&self, input: TeacherUpdateInput) -> Result<(), TeacherAppError> {
         let teacher    = self.teacher_repo.get_by_id(input.id)?;
-        let email      = Email::new(input.email)?;
+        let email      = if input.email.trim().is_empty() { None } else { Some(Email::new(input.email)?) };
         let first_name = FirstName::new(input.first_name)?;
         let last_name  = LastName::new(input.last_name)?;
         let notes      = input.notes.map(Notes::new).transpose()?;

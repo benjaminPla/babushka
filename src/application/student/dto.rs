@@ -7,7 +7,7 @@ use crate::domain::student::{AgeGroup, Student};
 pub struct StudentDto {
     pub age_group:  AgeGroup,
     pub created_at: DateTime<Utc>,
-    pub email:      String,
+    pub email:      Option<String>,
     pub first_name: String,
     pub id:         Uuid,
     pub last_name:  String,
@@ -21,7 +21,7 @@ impl From<&Student> for StudentDto {
         Self {
             age_group:  s.age_group(),
             created_at: s.created_at(),
-            email:      s.email().to_owned(),
+            email:      s.email().map(str::to_owned),
             first_name: s.first_name().to_owned(),
             id:         s.id(),
             last_name:  s.last_name().to_owned(),

@@ -36,7 +36,7 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn StudentRepo>, state: &mut Students
         .filter(|s| {
             (fn_f.is_empty() || s.first_name.to_lowercase().contains(&fn_f)) &&
             (ln_f.is_empty() || s.last_name.to_lowercase().contains(&ln_f))  &&
-            (em_f.is_empty() || s.email.to_lowercase().contains(&em_f))
+            (em_f.is_empty() || s.email.as_deref().unwrap_or("").to_lowercase().contains(&em_f))
         })
         .cloned()
         .collect();
@@ -63,7 +63,7 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn StudentRepo>, state: &mut Students
                 body.row(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut row| {
                     row.col(|ui| { ui.label(&s.first_name); });
                     row.col(|ui| { ui.label(&s.last_name); });
-                    row.col(|ui| { ui.label(&s.email); });
+                    row.col(|ui| { ui.label(s.email.as_deref().unwrap_or("")); });
                     row.col(|ui| { ui.label(&s.phone); });
                     row.col(|ui| { ui.label(s.age_group.label()); });
                     row.col(|ui| {
@@ -90,7 +90,7 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn StudentRepo>, state: &mut Students
                     state.age_group  = s.age_group;
                     state.first_name = s.first_name.clone();
                     state.last_name  = s.last_name.clone();
-                    state.email      = s.email.clone();
+                    state.email      = s.email.clone().unwrap_or_default();
                     state.phone      = s.phone.clone();
                     state.notes      = s.notes.clone().unwrap_or_default();
                     state.created_at = fmt_dt(s.created_at);

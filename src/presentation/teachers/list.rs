@@ -34,7 +34,7 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn TeacherRepo>, state: &mut Teachers
         .filter(|t| {
             (fn_f.is_empty() || t.first_name.to_lowercase().contains(&fn_f)) &&
             (ln_f.is_empty() || t.last_name.to_lowercase().contains(&ln_f))  &&
-            (em_f.is_empty() || t.email.to_lowercase().contains(&em_f))
+            (em_f.is_empty() || t.email.as_deref().unwrap_or("").to_lowercase().contains(&em_f))
         })
         .cloned()
         .collect();
@@ -61,7 +61,7 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn TeacherRepo>, state: &mut Teachers
                 body.row(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut row| {
                     row.col(|ui| { ui.label(&t.first_name); });
                     row.col(|ui| { ui.label(&t.last_name); });
-                    row.col(|ui| { ui.label(&t.email); });
+                    row.col(|ui| { ui.label(t.email.as_deref().unwrap_or("")); });
                     row.col(|ui| { ui.label(&t.phone); });
                     row.col(|ui| {
                         if ui.small_button(egui_phosphor::regular::EYE).clicked()           { action = Some((Action::View,   t.id)); }
@@ -82,7 +82,7 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn TeacherRepo>, state: &mut Teachers
                 if let Some(t) = state.teachers.iter().find(|t| t.id == id) {
                     state.first_name = t.first_name.clone();
                     state.last_name  = t.last_name.clone();
-                    state.email      = t.email.clone();
+                    state.email      = t.email.clone().unwrap_or_default();
                     state.phone      = t.phone.clone();
                     state.notes      = t.notes.clone().unwrap_or_default();
                     state.created_at = fmt_dt(t.created_at);

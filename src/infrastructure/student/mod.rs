@@ -43,17 +43,17 @@ fn pg_err(e: postgres::Error) -> StudentRepoError {
 }
 
 fn row_to_student(row: &Row) -> Result<Student, StudentRepoError> {
-    let id:         Uuid          = row.get("id");
-    let first_name: String        = row.get("first_name");
-    let last_name:  String        = row.get("last_name");
-    let phone:      String        = row.get("phone");
-    let email:      String        = row.get("email");
+    let id:         Uuid           = row.get("id");
+    let first_name: String         = row.get("first_name");
+    let last_name:  String         = row.get("last_name");
+    let phone:      String         = row.get("phone");
+    let email:      Option<String> = row.get("email");
     let notes:      Option<String> = row.get("notes");
-    let age_group:  String        = row.get("age_group_text");
-    let created_at: DateTime<Utc> = row.get("created_at");
-    let updated_at: DateTime<Utc> = row.get("updated_at");
+    let age_group:  String         = row.get("age_group_text");
+    let created_at: DateTime<Utc>  = row.get("created_at");
+    let updated_at: DateTime<Utc>  = row.get("updated_at");
 
-    let email      = Email::new(email).map_err(|e| StudentRepoError::Database(e.to_string()))?;
+    let email      = email.map(|s| Email::new(s).map_err(|e| StudentRepoError::Database(e.to_string()))).transpose()?;
     let first_name = FirstName::new(first_name).map_err(|e| StudentRepoError::Database(e.to_string()))?;
     let last_name  = LastName::new(last_name).map_err(|e| StudentRepoError::Database(e.to_string()))?;
     let notes      = notes.map(|s| Notes::new(s).map_err(|e| StudentRepoError::Database(e.to_string()))).transpose()?;
@@ -70,6 +70,7 @@ const SELECT: &str = "SELECT id, first_name, last_name, phone, email, notes,
 
 impl StudentRepo for StudentPgRepo {
     fn create(&self, student: &Student) -> Result<(), StudentRepoError> {
+        let email = student.email().map(str::to_owned);
         let notes = student.notes().map(str::to_owned);
         self.client
             .lock()
@@ -82,7 +83,7 @@ impl StudentRepo for StudentPgRepo {
                     &student.first_name(),
                     &student.last_name(),
                     &student.phone(),
-                    &student.email(),
+                    &email,
                     &notes,
                     &student.age_group().as_db_str(),
                 ],
@@ -123,6 +124,7 @@ impl StudentRepo for StudentPgRepo {
     }
 
     fn update(&self, student: &Student) -> Result<(), StudentRepoError> {
+        let email = student.email().map(str::to_owned);
         let notes = student.notes().map(str::to_owned);
         let n = self.client
             .lock()
@@ -136,7 +138,7 @@ impl StudentRepo for StudentPgRepo {
                     &student.first_name(),
                     &student.last_name(),
                     &student.phone(),
-                    &student.email(),
+                    &email,
                     &notes,
                     &student.age_group().as_db_str(),
                     &student.id(),

@@ -85,9 +85,11 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
         ui.label(egui::RichText::new(student.age_group.label()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
         ui.end_row();
 
-        ui.label(egui::RichText::new("Email").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(&student.email).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
+        if let Some(ref email) = student.email {
+            ui.label(egui::RichText::new("Email").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(email.as_str()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
+        }
 
         ui.label(egui::RichText::new("Teléfono").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
         ui.label(egui::RichText::new(&student.phone).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
@@ -397,10 +399,8 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                         }
                     });
                     row.col(|ui| {
-                        if !enrollment.is_paid() {
-                            if ui.small_button("Pagar").clicked() {
-                                pay_id = Some(enrollment.id());
-                            }
+                        if ui.add_enabled(!enrollment.is_paid(), egui::Button::new("Pagar").small()).clicked() {
+                            pay_id = Some(enrollment.id());
                         }
                         if ui.small_button(egui_phosphor::regular::TRASH).clicked() {
                             delete_id = Some(enrollment.id());

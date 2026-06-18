@@ -29,7 +29,7 @@ impl StudentCreateUseCase {
     }
 
     pub fn execute(&self, input: StudentCreateInput) -> Result<(), StudentAppError> {
-        let email      = Email::new(input.email)?;
+        let email      = if input.email.trim().is_empty() { None } else { Some(Email::new(input.email)?) };
         let first_name = FirstName::new(input.first_name)?;
         let last_name  = LastName::new(input.last_name)?;
         let notes      = input.notes.map(Notes::new).transpose()?;

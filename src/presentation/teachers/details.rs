@@ -31,9 +31,11 @@ pub fn show(ui: &mut egui::Ui, state: &mut TeachersState) {
         ui.label(egui::RichText::new(&teacher.last_name).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
         ui.end_row();
 
-        ui.label(egui::RichText::new("Email").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(&teacher.email).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
+        if let Some(ref email) = teacher.email {
+            ui.label(egui::RichText::new("Email").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(email.as_str()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
+        }
 
         ui.label(egui::RichText::new("Teléfono").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
         ui.label(egui::RichText::new(&teacher.phone).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));

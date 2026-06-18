@@ -16,7 +16,7 @@ use crate::domain::shared::value_objects::{
 pub struct Student {
     age_group:  AgeGroup,
     created_at: DateTime<Utc>,
-    email:      Email,
+    email:      Option<Email>,
     first_name: FirstName,
     id:         Uuid,
     last_name:  LastName,
@@ -28,7 +28,7 @@ pub struct Student {
 impl Student {
     pub fn new(
         age_group:  AgeGroup,
-        email:      Email,
+        email:      Option<Email>,
         first_name: FirstName,
         last_name:  LastName,
         notes:      Option<Notes>,
@@ -51,7 +51,7 @@ impl Student {
     pub fn reconstitute(
         age_group:  AgeGroup,
         created_at: DateTime<Utc>,
-        email:      Email,
+        email:      Option<Email>,
         first_name: FirstName,
         id:         Uuid,
         last_name:  LastName,
@@ -75,7 +75,7 @@ impl Student {
     pub fn update(
         self,
         age_group:  AgeGroup,
-        email:      Email,
+        email:      Option<Email>,
         first_name: FirstName,
         last_name:  LastName,
         notes:      Option<Notes>,
@@ -95,13 +95,13 @@ impl Student {
 
     // ── Getters ──────────────────────────────────────────────────────────────
 
-    pub fn age_group(&self)  -> AgeGroup        { self.age_group }
-    pub fn created_at(&self) -> DateTime<Utc>   { self.created_at }
-    pub fn email(&self)      -> &str            { self.email.value() }
-    pub fn first_name(&self) -> &str            { self.first_name.value() }
-    pub fn id(&self)         -> Uuid            { self.id }
-    pub fn last_name(&self)  -> &str            { self.last_name.value() }
-    pub fn notes(&self)      -> Option<&str>    { self.notes.as_ref().map(Notes::value) }
-    pub fn phone(&self)      -> &str            { self.phone.value() }
-    pub fn updated_at(&self) -> DateTime<Utc>   { self.updated_at }
+    pub fn age_group(&self)  -> AgeGroup           { self.age_group }
+    pub fn created_at(&self) -> DateTime<Utc>      { self.created_at }
+    pub fn email(&self)      -> Option<&str>       { self.email.as_ref().map(Email::value) }
+    pub fn first_name(&self) -> &str               { self.first_name.value() }
+    pub fn id(&self)         -> Uuid               { self.id }
+    pub fn last_name(&self)  -> &str               { self.last_name.value() }
+    pub fn notes(&self)      -> Option<&str>       { self.notes.as_ref().map(Notes::value) }
+    pub fn phone(&self)      -> &str               { self.phone.value() }
+    pub fn updated_at(&self) -> DateTime<Utc>      { self.updated_at }
 }

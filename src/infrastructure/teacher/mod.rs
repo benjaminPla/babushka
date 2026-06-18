@@ -45,7 +45,7 @@ fn pg_err(e: postgres::Error) -> TeacherRepoError {
 
 fn row_to_teacher(row: &Row) -> Result<Teacher, TeacherRepoError> {
     let created_at: DateTime<Utc>  = row.get("created_at");
-    let email:      String         = row.get("email");
+    let email:      Option<String> = row.get("email");
     let first_name: String         = row.get("first_name");
     let id:         Uuid           = row.get("id");
     let last_name:  String         = row.get("last_name");
@@ -53,7 +53,7 @@ fn row_to_teacher(row: &Row) -> Result<Teacher, TeacherRepoError> {
     let phone:      String         = row.get("phone");
     let updated_at: DateTime<Utc>  = row.get("updated_at");
 
-    let email      = Email::new(email).map_err(|e| TeacherRepoError::Database(e.to_string()))?;
+    let email      = email.map(|s| Email::new(s).map_err(|e| TeacherRepoError::Database(e.to_string()))).transpose()?;
     let first_name = FirstName::new(first_name).map_err(|e| TeacherRepoError::Database(e.to_string()))?;
     let last_name  = LastName::new(last_name).map_err(|e| TeacherRepoError::Database(e.to_string()))?;
     let notes      = notes.map(|s| Notes::new(s).map_err(|e| TeacherRepoError::Database(e.to_string()))).transpose()?;
@@ -64,6 +64,7 @@ fn row_to_teacher(row: &Row) -> Result<Teacher, TeacherRepoError> {
 
 impl TeacherRepo for TeacherPgRepo {
     fn create(&self, teacher: &Teacher) -> Result<(), TeacherRepoError> {
+        let email = teacher.email().map(str::to_owned);
         let notes = teacher.notes().map(str::to_owned);
         self.client
             .lock()
@@ -76,7 +77,7 @@ impl TeacherRepo for TeacherPgRepo {
                     &teacher.first_name(),
                     &teacher.last_name(),
                     &teacher.phone(),
-                    &teacher.email(),
+                    &email,
                     &notes,
                 ],
             )
@@ -122,6 +123,7 @@ impl TeacherRepo for TeacherPgRepo {
     }
 
     fn update(&self, teacher: &Teacher) -> Result<(), TeacherRepoError> {
+        let email = teacher.email().map(str::to_owned);
         let notes = teacher.notes().map(str::to_owned);
         let n = self.client
             .lock()
@@ -134,7 +136,7 @@ impl TeacherRepo for TeacherPgRepo {
                     &teacher.first_name(),
                     &teacher.last_name(),
                     &teacher.phone(),
-                    &teacher.email(),
+                    &email,
                     &notes,
                     &teacher.id(),
                 ],
