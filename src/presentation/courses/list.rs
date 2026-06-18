@@ -79,9 +79,10 @@ pub fn show(ui: &mut egui::Ui, repo: &Arc<dyn CourseRepo>, client: &Arc<Mutex<Cl
         match act {
             Action::Open => {
                 if let Some(c) = state.courses.iter().find(|c| c.id == id) {
-                    state.selected_course      = Some(c.clone());
-                    state.needs_reload_periods = true;
-                    state.mode                 = Mode::Detail;
+                    state.selected_course       = Some(c.clone());
+                    state.needs_reload_periods  = true;
+                    state.needs_reload_students = true;
+                    state.mode                  = Mode::Detail;
                 }
             }
             Action::Edit => {

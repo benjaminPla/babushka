@@ -18,7 +18,9 @@ use crate::presentation::Notifications;
 use crate::theme::colors;
 use crate::theme::sizes;
 
-use super::{format_price, make_course_period_repo, CoursesState, Mode};
+use crate::domain::enrollment::repository::EnrollmentRepo;
+
+use super::{format_price, make_course_period_repo, make_enrollment_repo, CoursesState, Mode};
 
 pub fn show(
     ui:     &mut egui::Ui,
@@ -48,68 +50,107 @@ pub fn show(
         }
     }
 
+    if state.needs_reload_students {
+        state.needs_reload_students = false;
+        match make_enrollment_repo(client).get_by_course(course.id) {
+            Ok(students) => state.course_students = students,
+            Err(e)       => push_error(notifs, e.to_string()),
+        }
+    }
+
     if ui.button("<- Volver").clicked() {
-        state.mode             = Mode::List;
-        state.selected_course  = None;
-        state.periods          = Vec::new();
-        state.show_period_form = false;
+        state.mode              = Mode::List;
+        state.selected_course   = None;
+        state.periods           = Vec::new();
+        state.course_students   = Vec::new();
+        state.show_period_form  = false;
         return;
     }
     ui.separator();
 
-    ui.label(egui::RichText::new("Información").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
+    ui.columns(2, |cols| {
+        // ── Left: course info ─────────────────────────────────────────────
+        cols[0].label(egui::RichText::new("Información").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
+        egui::Grid::new("course_details").num_columns(2).spacing([sizes::SPACING_NORMAL, sizes::SPACING_SMALL]).show(&mut cols[0], |ui| {
+            let teacher_name = state.teachers.iter()
+                .find(|t| t.id == course.teacher_id)
+                .map(|t| format!("{} {}", t.first_name, t.last_name))
+                .unwrap_or_else(|| course.teacher_id.to_string());
 
-    egui::Grid::new("course_details").num_columns(2).spacing([sizes::SPACING_NORMAL, sizes::SPACING_SMALL]).show(ui, |ui| {
-        let teacher_name = state.teachers.iter()
-            .find(|t| t.id == course.teacher_id)
-            .map(|t| format!("{} {}", t.first_name, t.last_name))
-            .unwrap_or_else(|| course.teacher_id.to_string());
-
-        ui.label(egui::RichText::new("Nombre").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(&course.name).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
-
-        ui.label(egui::RichText::new("Profesor").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(teacher_name).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
-
-        ui.label(egui::RichText::new("Grupo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(course.age_group.label()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
-
-        ui.label(egui::RichText::new("Capacidad").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(course.capacity.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
-
-        ui.label(egui::RichText::new("Mensual efectivo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(format_price(course.month_price_cash_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
-
-        ui.label(egui::RichText::new("Mensual transferencia").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(format_price(course.month_price_transfer_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
-
-        ui.label(egui::RichText::new("Clase efectivo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(format_price(course.class_price_cash_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
-
-        ui.label(egui::RichText::new("Clase transferencia").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(format_price(course.class_price_transfer_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
-
-        if let Some(n) = &course.notes {
-            ui.label(egui::RichText::new("Notas").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-            ui.label(egui::RichText::new(n.as_str()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new("Nombre").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(&course.name).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
             ui.end_row();
-        }
 
-        ui.label(egui::RichText::new("Creado").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(crate::presentation::fmt_dt(course.created_at)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
+            ui.label(egui::RichText::new("Profesor").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(teacher_name).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
 
-        ui.label(egui::RichText::new("Editado").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-        ui.label(egui::RichText::new(crate::presentation::fmt_dt(course.updated_at)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
-        ui.end_row();
+            ui.label(egui::RichText::new("Grupo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(course.age_group.label()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
+
+            ui.label(egui::RichText::new("Capacidad").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(course.capacity.to_string()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
+
+            ui.label(egui::RichText::new("Mensual efectivo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(format_price(course.month_price_cash_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
+
+            ui.label(egui::RichText::new("Mensual transferencia").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(format_price(course.month_price_transfer_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
+
+            ui.label(egui::RichText::new("Clase efectivo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(format_price(course.class_price_cash_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
+
+            ui.label(egui::RichText::new("Clase transferencia").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(format_price(course.class_price_transfer_cents)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
+
+            if let Some(n) = &course.notes {
+                ui.label(egui::RichText::new("Notas").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                ui.label(egui::RichText::new(n.as_str()).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+                ui.end_row();
+            }
+
+            ui.label(egui::RichText::new("Creado").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(crate::presentation::fmt_dt(course.created_at)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
+
+            ui.label(egui::RichText::new("Editado").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+            ui.label(egui::RichText::new(crate::presentation::fmt_dt(course.updated_at)).color(colors::WHITE).size(sizes::FONT_SIZE_NORMAL));
+            ui.end_row();
+        });
+
+        // ── Right: enrolled students ──────────────────────────────────────
+        let n = state.course_students.len();
+        cols[1].label(egui::RichText::new(format!("Alumnos ({n})")).color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_BIG));
+        TableBuilder::new(&mut cols[1])
+            .striped(true)
+            .max_scroll_height(250.0)
+            .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+            .column(Column::remainder())
+            .column(Column::auto())
+            .header(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut header| {
+                header.col(|ui| { ui.label("Nombre"); });
+                header.col(|ui| { ui.label("Estado"); });
+            })
+            .body(|mut body| {
+                for e in &state.course_students {
+                    body.row(sizes::TABLE_ROW_HEIGHT_NORMAL, |mut row| {
+                        row.col(|ui| { ui.label(e.student_name()); });
+                        row.col(|ui| {
+                            if e.is_paid() {
+                                ui.colored_label(colors::GREEN,      "pagado");
+                            } else {
+                                ui.colored_label(colors::LIGHT_GRAY, "pendiente");
+                            }
+                        });
+                    });
+                }
+            });
     });
 
     ui.add_space(sizes::SPACING_SMALL);

@@ -42,6 +42,7 @@ fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
     let course_id:         Uuid                  = row.get("course_id");
     let period_label:      String                = row.get("period_label");
     let course_name:       String                = row.get("course_name");
+    let student_name:      String                = row.get("student_name");
     let pricing_type_str:  String                = row.get("pricing_type");
     let enrolled_at:       DateTime<Utc>         = row.get("enrolled_at");
     let paid_amount_cents: Option<i32>           = row.get("paid_amount_cents");
@@ -59,7 +60,7 @@ fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
     };
 
     Ok(Enrollment::reconstitute(
-        id, student_id, period_id, course_id, period_label, course_name,
+        id, student_id, period_id, course_id, period_label, course_name, student_name,
         pricing_type, enrolled_at, paid_amount_cents, payment_method, paid_at, payment_notes,
     ))
 }
@@ -71,10 +72,12 @@ const SELECT: &str = "
            e.paid_at, e.payment_notes,
            c.id AS course_id,
            TO_CHAR(cp.start_date, 'FMMonth YYYY') AS period_label,
-           c.name AS course_name
+           c.name AS course_name,
+           s.first_name || ' ' || s.last_name AS student_name
     FROM enrollments e
     JOIN course_periods cp ON cp.id = e.course_period_id
-    JOIN courses        c  ON c.id  = cp.course_id";
+    JOIN courses        c  ON c.id  = cp.course_id
+    JOIN students       s  ON s.id  = e.student_id";
 
 impl EnrollmentRepo for EnrollmentPgRepo {
     fn create(&self, enrollment: &Enrollment) -> Result<(), EnrollmentRepoError> {
@@ -105,6 +108,14 @@ impl EnrollmentRepo for EnrollmentPgRepo {
         let query = format!("{SELECT} WHERE e.student_id = $1 ORDER BY e.enrolled_at DESC");
         let rows = self.client.lock().unwrap()
             .query(&query, &[&student_id])
+            .map_err(pg_err)?;
+        rows.iter().map(row_to_enrollment).collect()
+    }
+
+    fn get_by_course(&self, course_id: Uuid) -> Result<Vec<Enrollment>, EnrollmentRepoError> {
+        let query = format!("{SELECT} WHERE c.id = $1 ORDER BY s.last_name, s.first_name");
+        let rows = self.client.lock().unwrap()
+            .query(&query, &[&course_id])
             .map_err(pg_err)?;
         rows.iter().map(row_to_enrollment).collect()
     }

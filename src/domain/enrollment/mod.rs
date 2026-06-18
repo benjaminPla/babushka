@@ -16,6 +16,7 @@ pub struct Enrollment {
     course_id:         Uuid,
     period_label:      String,
     course_name:       String,
+    student_name:      String,
     pricing_type:      PricingType,
     enrolled_at:       DateTime<Utc>,
     paid_amount_cents: Option<i32>,
@@ -33,6 +34,7 @@ impl Enrollment {
             course_id:         Uuid::nil(),
             period_label:      String::new(),
             course_name:       String::new(),
+            student_name:      String::new(),
             pricing_type,
             enrolled_at:       Utc::now(),
             paid_amount_cents: None,
@@ -49,6 +51,7 @@ impl Enrollment {
         course_id:         Uuid,
         period_label:      String,
         course_name:       String,
+        student_name:      String,
         pricing_type:      PricingType,
         enrolled_at:       DateTime<Utc>,
         paid_amount_cents: Option<i32>,
@@ -58,8 +61,8 @@ impl Enrollment {
     ) -> Self {
         Self {
             id, student_id, course_period_id, course_id, period_label, course_name,
-            pricing_type, enrolled_at, paid_amount_cents, payment_method, paid_at,
-            payment_notes,
+            student_name, pricing_type, enrolled_at, paid_amount_cents, payment_method,
+            paid_at, payment_notes,
         }
     }
 
@@ -69,6 +72,7 @@ impl Enrollment {
     pub fn course_id(&self)         -> Uuid                  { self.course_id }
     pub fn period_label(&self)      -> &str                  { &self.period_label }
     pub fn course_name(&self)       -> &str                  { &self.course_name }
+    pub fn student_name(&self)      -> &str                  { &self.student_name }
     pub fn pricing_type(&self)      -> &str                  { self.pricing_type.value() }
     pub fn is_monthly(&self)        -> bool                  { self.pricing_type.is_monthly() }
     pub fn enrolled_at(&self)       -> DateTime<Utc>         { self.enrolled_at }

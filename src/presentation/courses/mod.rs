@@ -14,6 +14,8 @@ use crate::application::course::get_all::CourseGetAllUseCase;
 use crate::application::course_period::dto::CoursePeriodDto;
 use crate::application::teacher::dto::TeacherDto;
 use crate::domain::course::repository::CourseRepo;
+use crate::domain::enrollment::Enrollment;
+use crate::infrastructure::enrollment::EnrollmentPgRepo;
 use crate::domain::shared::value_objects::age_group::AgeGroup;
 use crate::infrastructure::course_period::CoursePeriodPgRepo;
 use crate::infrastructure::teacher::TeacherPgRepo;
@@ -49,9 +51,11 @@ pub struct CoursesState {
     pub course_notes: String,
 
     // detail
-    pub selected_course:      Option<CourseDto>,
-    pub periods:              Vec<CoursePeriodDto>,
-    pub needs_reload_periods: bool,
+    pub selected_course:        Option<CourseDto>,
+    pub periods:                Vec<CoursePeriodDto>,
+    pub needs_reload_periods:   bool,
+    pub course_students:        Vec<Enrollment>,
+    pub needs_reload_students:  bool,
 
     // period modal
     pub period_year:      i32,
@@ -86,9 +90,11 @@ impl Default for CoursesState {
             class_price_cash:     String::new(),
             class_price_transfer: String::new(),
             course_notes: String::new(),
-            selected_course:      None,
-            periods:              Vec::new(),
-            needs_reload_periods: false,
+            selected_course:        None,
+            periods:                Vec::new(),
+            needs_reload_periods:   false,
+            course_students:        Vec::new(),
+            needs_reload_students:  false,
             period_year:      now.year(),
             period_month:     now.month(),
             show_period_form: false,
@@ -102,6 +108,9 @@ impl Default for CoursesState {
 
 pub fn make_course_period_repo(client: &Arc<Mutex<Client>>) -> Arc<CoursePeriodPgRepo> {
     Arc::new(CoursePeriodPgRepo::new(Arc::clone(client)))
+}
+pub fn make_enrollment_repo(client: &Arc<Mutex<Client>>) -> Arc<EnrollmentPgRepo> {
+    Arc::new(EnrollmentPgRepo::new(Arc::clone(client)))
 }
 pub fn make_teacher_repo(client: &Arc<Mutex<Client>>) -> Arc<TeacherPgRepo> {
     Arc::new(TeacherPgRepo::new(Arc::clone(client)))
