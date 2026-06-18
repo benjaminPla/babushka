@@ -47,6 +47,7 @@ fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
     let paid_amount_cents: Option<i32>           = row.get("paid_amount_cents");
     let method_text:       Option<String>        = row.get("payment_method_text");
     let paid_at:           Option<DateTime<Utc>> = row.get("paid_at");
+    let payment_notes:     Option<String>        = row.get("payment_notes");
 
     let pricing_type = PricingType::new(&pricing_type_str)
         .map_err(|_| EnrollmentRepoError::Database(format!("unknown pricing_type: {pricing_type_str}")))?;
@@ -59,7 +60,7 @@ fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
 
     Ok(Enrollment::reconstitute(
         id, student_id, period_id, course_id, period_label, course_name,
-        pricing_type, enrolled_at, paid_amount_cents, payment_method, paid_at,
+        pricing_type, enrolled_at, paid_amount_cents, payment_method, paid_at, payment_notes,
     ))
 }
 
@@ -67,7 +68,7 @@ const SELECT: &str = "
     SELECT e.id, e.student_id, e.course_period_id, e.enrolled_at,
            e.pricing_type, e.paid_amount_cents,
            e.payment_method::text AS payment_method_text,
-           e.paid_at,
+           e.paid_at, e.payment_notes,
            c.id AS course_id,
            TO_CHAR(cp.start_date, 'FMMonth YYYY') AS period_label,
            c.name AS course_name
@@ -108,15 +109,16 @@ impl EnrollmentRepo for EnrollmentPgRepo {
         rows.iter().map(row_to_enrollment).collect()
     }
 
-    fn pay(&self, id: Uuid, amount_cents: i32, method: PaymentMethod, paid_at: DateTime<Utc>) -> Result<(), EnrollmentRepoError> {
+    fn pay(&self, id: Uuid, amount_cents: i32, method: PaymentMethod, paid_at: DateTime<Utc>, notes: Option<String>) -> Result<(), EnrollmentRepoError> {
         let n = self.client.lock().unwrap()
             .execute(
                 "UPDATE enrollments
                  SET paid_amount_cents = $2,
                      payment_method    = $3::text::payment_method,
-                     paid_at           = $4
+                     paid_at           = $4,
+                     payment_notes     = $5
                  WHERE id = $1",
-                &[&id, &amount_cents, &method.value(), &paid_at],
+                &[&id, &amount_cents, &method.value(), &paid_at, &notes],
             )
             .map_err(pg_err)?;
         if n == 0 { return Err(EnrollmentRepoError::NotFound(id)); }

@@ -12,6 +12,7 @@ pub struct EnrollmentPayInput {
     pub amount_cents:   i32,
     pub payment_method: String,
     pub paid_at:        DateTime<Utc>,
+    pub notes:          Option<String>,
 }
 
 pub struct EnrollmentPayUseCase {
@@ -32,7 +33,7 @@ impl EnrollmentPayUseCase {
             .map_err(|e| EnrollmentAppError::Validation(e.to_string()))?;
 
         self.enrollment_repo
-            .pay(input.enrollment_id, input.amount_cents, method, input.paid_at)
+            .pay(input.enrollment_id, input.amount_cents, method, input.paid_at, input.notes)
             .map_err(EnrollmentAppError::from)?;
 
         log::info!("[enrollment] paid: id={} amount={}", input.enrollment_id, input.amount_cents);

@@ -21,6 +21,7 @@ pub struct Enrollment {
     paid_amount_cents: Option<i32>,
     payment_method:    Option<PaymentMethod>,
     paid_at:           Option<DateTime<Utc>>,
+    payment_notes:     Option<String>,
 }
 
 impl Enrollment {
@@ -37,6 +38,7 @@ impl Enrollment {
             paid_amount_cents: None,
             payment_method:    None,
             paid_at:           None,
+            payment_notes:     None,
         }
     }
 
@@ -52,10 +54,12 @@ impl Enrollment {
         paid_amount_cents: Option<i32>,
         payment_method:    Option<PaymentMethod>,
         paid_at:           Option<DateTime<Utc>>,
+        payment_notes:     Option<String>,
     ) -> Self {
         Self {
             id, student_id, course_period_id, course_id, period_label, course_name,
             pricing_type, enrolled_at, paid_amount_cents, payment_method, paid_at,
+            payment_notes,
         }
     }
 
@@ -71,5 +75,6 @@ impl Enrollment {
     pub fn paid_amount_cents(&self) -> Option<i32>           { self.paid_amount_cents }
     pub fn payment_method(&self)    -> Option<&str>          { self.payment_method.as_ref().map(|m| m.value()) }
     pub fn paid_at(&self)           -> Option<DateTime<Utc>> { self.paid_at }
+    pub fn payment_notes(&self)     -> Option<&str>          { self.payment_notes.as_deref() }
     pub fn is_paid(&self)           -> bool                  { self.paid_at.is_some() }
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use uuid::Uuid;
@@ -8,9 +9,15 @@ use crate::domain::student::{repository::StudentRepo, AgeGroup};
 use crate::domain::teacher::repository::TeacherRepo;
 
 pub struct DebtorRow {
-    pub id:        Uuid,
-    pub full_name: String,
-    pub pending:   String,
+    pub student_id:                 Uuid,
+    pub full_name:                  String,
+    pub enrollment_id:              Uuid,
+    pub course_and_period:          String,
+    pub pricing_type:               String,
+    pub month_price_cash_cents:     i32,
+    pub month_price_transfer_cents: i32,
+    pub class_price_cash_cents:     i32,
+    pub class_price_transfer_cents: i32,
 }
 
 pub struct DashboardData {
@@ -55,25 +62,31 @@ impl DashboardUseCase {
         let courses_adult  = courses.iter().filter(|c| c.age_group() == AgeGroup::Adult).count();
         let courses_minor  = courses.iter().filter(|c| c.age_group() == AgeGroup::Minor).count();
 
-        let mut debtors: Vec<DebtorRow> = students
-            .iter()
-            .filter_map(|s| {
-                let enrollments = self.enrollment_repo.get_by_student(s.id()).ok()?;
-                let unpaid: Vec<_> = enrollments.iter().filter(|e| !e.is_paid()).collect();
-                if unpaid.is_empty() { return None; }
-                let pending = unpaid.iter()
-                    .map(|e| format!("{} — {}", e.course_name(), e.period_label()))
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                Some(DebtorRow {
-                    id:        s.id(),
-                    full_name: format!("{} {}", s.first_name(), s.last_name()),
-                    pending,
-                })
-            })
-            .collect();
+        let course_map: HashMap<Uuid, _> = courses.iter().map(|c| (c.id(), c)).collect();
 
-        debtors.sort_by(|a, b| a.full_name.cmp(&b.full_name));
+        let mut debtors: Vec<DebtorRow> = Vec::new();
+
+        for s in &students {
+            let enrollments = self.enrollment_repo.get_by_student(s.id())
+                .map_err(|_| DashboardError::Database)?;
+
+            for e in enrollments.iter().filter(|e| !e.is_paid()) {
+                let Some(c) = course_map.get(&e.course_id()) else { continue };
+                debtors.push(DebtorRow {
+                    student_id:                 s.id(),
+                    full_name:                  format!("{} {}", s.first_name(), s.last_name()),
+                    enrollment_id:              e.id(),
+                    course_and_period:          format!("{} — {}", e.course_name(), e.period_label()),
+                    pricing_type:               e.pricing_type().to_owned(),
+                    month_price_cash_cents:     c.month_price_cash_cents().value(),
+                    month_price_transfer_cents: c.month_price_transfer_cents().value(),
+                    class_price_cash_cents:     c.class_price_cash_cents().value(),
+                    class_price_transfer_cents: c.class_price_transfer_cents().value(),
+                });
+            }
+        }
+
+        debtors.sort_by(|a, b| a.full_name.cmp(&b.full_name).then(a.course_and_period.cmp(&b.course_and_period)));
 
         Ok(DashboardData {
             debtors,

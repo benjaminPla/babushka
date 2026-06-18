@@ -66,6 +66,7 @@ pub struct StudentsState {
     pub pay_amount:          String,
     pub pay_method:          String,
     pub pay_date:            NaiveDate,
+    pub pay_notes:           String,
 
     pub confirm_delete: Option<Uuid>,
 }
@@ -110,6 +111,7 @@ impl Default for StudentsState {
             pay_amount:          String::new(),
             pay_method:          "cash".into(),
             pay_date:            today(),
+            pay_notes:           String::new(),
             confirm_delete:    None,
         }
     }
@@ -142,6 +144,7 @@ pub fn clear_detail_state(state: &mut StudentsState) {
     state.pay_amount               = String::new();
     state.pay_method               = "cash".into();
     state.pay_date                 = today();
+    state.pay_notes                = String::new();
     state.confirm_delete           = None;
 }
 

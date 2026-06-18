@@ -263,24 +263,24 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
             )
             .show(ui.ctx(), |ui| {
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
-                    // Reference prices
+                    // Reference prices — only the 2 relevant to this enrollment's pricing_type
                     if let Some(ref c) = course_info {
-                        ui.label(egui::RichText::new("Precios de referencia").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                        let is_monthly = pricing_type_str == "monthly";
+                        let (label, price_cash, price_transfer) = if is_monthly {
+                            ("Mensual", c.month_price_cash_cents, c.month_price_transfer_cents)
+                        } else {
+                            ("Por clase", c.class_price_cash_cents, c.class_price_transfer_cents)
+                        };
+                        ui.label(egui::RichText::new(format!("Precio de referencia ({label})")).color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
                         egui::Grid::new("pay_prices")
                             .num_columns(2)
                             .spacing([sizes::SPACING_NORMAL, 2.0])
                             .show(ui, |ui| {
-                                ui.label(egui::RichText::new("Mensual efectivo").color(colors::LIGHT_GRAY));
-                                ui.label(egui::RichText::new(fmt_ars(c.month_price_cash_cents)).color(colors::WHITE));
+                                ui.label(egui::RichText::new("Efectivo").color(colors::LIGHT_GRAY));
+                                ui.label(egui::RichText::new(fmt_ars(price_cash)).color(colors::WHITE));
                                 ui.end_row();
-                                ui.label(egui::RichText::new("Mensual transferencia").color(colors::LIGHT_GRAY));
-                                ui.label(egui::RichText::new(fmt_ars(c.month_price_transfer_cents)).color(colors::WHITE));
-                                ui.end_row();
-                                ui.label(egui::RichText::new("Por clase efectivo").color(colors::LIGHT_GRAY));
-                                ui.label(egui::RichText::new(fmt_ars(c.class_price_cash_cents)).color(colors::WHITE));
-                                ui.end_row();
-                                ui.label(egui::RichText::new("Por clase transferencia").color(colors::LIGHT_GRAY));
-                                ui.label(egui::RichText::new(fmt_ars(c.class_price_transfer_cents)).color(colors::WHITE));
+                                ui.label(egui::RichText::new("Transferencia").color(colors::LIGHT_GRAY));
+                                ui.label(egui::RichText::new(fmt_ars(price_transfer)).color(colors::WHITE));
                                 ui.end_row();
                             });
                         ui.add_space(sizes::SPACING_SMALL);
@@ -310,6 +310,10 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
 
                     ui.label(egui::RichText::new("Fecha").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
                     date_selector(ui, "pay_date", &mut state.pay_date);
+                    ui.add_space(sizes::SPACING_SMALL);
+
+                    ui.label(egui::RichText::new("Notas").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
+                    ui.add_sized([ui.available_width(), 0.0], egui::TextEdit::multiline(&mut state.pay_notes).desired_rows(3));
                     ui.add_space(sizes::SPACING_NORMAL);
 
                     ui.horizontal(|ui| {
@@ -324,18 +328,21 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                                     None     => { push_error(notifs, "Sin inscripción seleccionada"); return; }
                                 };
                                 let paid_at = naive_date_to_utc(state.pay_date);
+                                let notes = if state.pay_notes.trim().is_empty() { None } else { Some(state.pay_notes.trim().to_owned()) };
                                 match EnrollmentPayUseCase::new(make_enrollment_repo(client))
                                     .execute(EnrollmentPayInput {
                                         enrollment_id,
                                         amount_cents,
                                         payment_method: state.pay_method.clone(),
                                         paid_at,
+                                        notes,
                                     }) {
                                     Ok(_) => {
                                         push_success(notifs, "Pago registrado");
-                                        state.show_payment_form       = false;
-                                        state.pay_enrollment_id       = None;
-                                        state.pay_amount              = String::new();
+                                        state.show_payment_form        = false;
+                                        state.pay_enrollment_id        = None;
+                                        state.pay_amount               = String::new();
+                                        state.pay_notes                = String::new();
                                         state.needs_reload_enrollments = true;
                                     }
                                     Err(e) => push_error(notifs, e.to_string()),
@@ -345,6 +352,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                                 state.show_payment_form = false;
                                 state.pay_enrollment_id = None;
                                 state.pay_amount        = String::new();
+                                state.pay_notes         = String::new();
                             }
                         });
                     });
@@ -422,6 +430,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
         state.pay_amount        = String::new();
         state.pay_method        = "cash".into();
         state.pay_date          = today();
+        state.pay_notes         = String::new();
         state.show_payment_form = true;
         // Pre-fill amount
         auto_fill_amount(state, &course, &pricing_type);
