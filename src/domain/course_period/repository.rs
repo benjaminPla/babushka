@@ -6,7 +6,6 @@ pub trait CoursePeriodRepo: Send + Sync {
     fn create(&self, period: &CoursePeriod)       -> Result<(), CoursePeriodRepoError>;
     fn delete(&self, id: Uuid)                    -> Result<(), CoursePeriodRepoError>;
     fn get_by_course(&self, course_id: Uuid)      -> Result<Vec<CoursePeriod>, CoursePeriodRepoError>;
-    fn get_by_id(&self, id: Uuid)                 -> Result<CoursePeriod, CoursePeriodRepoError>;
 }
 
 #[derive(Debug, thiserror::Error)]

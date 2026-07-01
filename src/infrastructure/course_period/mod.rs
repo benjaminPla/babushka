@@ -78,13 +78,4 @@ impl CoursePeriodRepo for CoursePeriodPgRepo {
             .map_err(pg_err)?;
         rows.iter().map(row_to_period).collect()
     }
-
-    fn get_by_id(&self, id: Uuid) -> Result<CoursePeriod, CoursePeriodRepoError> {
-        let query = format!("{SELECT} WHERE cp.id = $1");
-        let row = self.client.lock().unwrap()
-            .query_opt(&query, &[&id])
-            .map_err(pg_err)?
-            .ok_or(CoursePeriodRepoError::NotFound(id))?;
-        row_to_period(&row)
-    }
 }

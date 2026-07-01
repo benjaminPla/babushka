@@ -18,7 +18,6 @@ pub struct Enrollment {
     course_name:       String,
     student_name:      String,
     pricing_type:      PricingType,
-    enrolled_at:       DateTime<Utc>,
     paid_amount_cents: Option<i32>,
     payment_method:    Option<PaymentMethod>,
     paid_at:           Option<DateTime<Utc>>,
@@ -36,7 +35,6 @@ impl Enrollment {
             course_name:       String::new(),
             student_name:      String::new(),
             pricing_type,
-            enrolled_at:       Utc::now(),
             paid_amount_cents: None,
             payment_method:    None,
             paid_at:           None,
@@ -53,7 +51,6 @@ impl Enrollment {
         course_name:       String,
         student_name:      String,
         pricing_type:      PricingType,
-        enrolled_at:       DateTime<Utc>,
         paid_amount_cents: Option<i32>,
         payment_method:    Option<PaymentMethod>,
         paid_at:           Option<DateTime<Utc>>,
@@ -61,7 +58,7 @@ impl Enrollment {
     ) -> Self {
         Self {
             id, student_id, course_period_id, course_id, period_label, course_name,
-            student_name, pricing_type, enrolled_at, paid_amount_cents, payment_method,
+            student_name, pricing_type, paid_amount_cents, payment_method,
             paid_at, payment_notes,
         }
     }
@@ -75,7 +72,6 @@ impl Enrollment {
     pub fn student_name(&self)      -> &str                  { &self.student_name }
     pub fn pricing_type(&self)      -> &str                  { self.pricing_type.value() }
     pub fn is_monthly(&self)        -> bool                  { self.pricing_type.is_monthly() }
-    pub fn enrolled_at(&self)       -> DateTime<Utc>         { self.enrolled_at }
     pub fn paid_amount_cents(&self) -> Option<i32>           { self.paid_amount_cents }
     pub fn payment_method(&self)    -> Option<&str>          { self.payment_method.as_ref().map(|m| m.value()) }
     pub fn paid_at(&self)           -> Option<DateTime<Utc>> { self.paid_at }

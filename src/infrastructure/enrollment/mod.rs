@@ -44,7 +44,6 @@ fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
     let course_name:       String                = row.get("course_name");
     let student_name:      String                = row.get("student_name");
     let pricing_type_str:  String                = row.get("pricing_type");
-    let enrolled_at:       DateTime<Utc>         = row.get("enrolled_at");
     let paid_amount_cents: Option<i32>           = row.get("paid_amount_cents");
     let method_text:       Option<String>        = row.get("payment_method_text");
     let paid_at:           Option<DateTime<Utc>> = row.get("paid_at");
@@ -61,12 +60,12 @@ fn row_to_enrollment(row: &Row) -> Result<Enrollment, EnrollmentRepoError> {
 
     Ok(Enrollment::reconstitute(
         id, student_id, period_id, course_id, period_label, course_name, student_name,
-        pricing_type, enrolled_at, paid_amount_cents, payment_method, paid_at, payment_notes,
+        pricing_type, paid_amount_cents, payment_method, paid_at, payment_notes,
     ))
 }
 
 const SELECT: &str = "
-    SELECT e.id, e.student_id, e.course_period_id, e.enrolled_at,
+    SELECT e.id, e.student_id, e.course_period_id,
            e.pricing_type, e.paid_amount_cents,
            e.payment_method::text AS payment_method_text,
            e.paid_at, e.payment_notes,
