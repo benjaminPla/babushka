@@ -9,6 +9,7 @@ use crate::application::course::get_all::CourseGetAllUseCase;
 use crate::application::course_period::get_by_course::CoursePeriodGetByCourseUseCase;
 use crate::application::enrollment::create::{EnrollmentCreateInput, EnrollmentCreateUseCase};
 use crate::application::enrollment::delete::EnrollmentDeleteUseCase;
+use crate::application::enrollment::delete_payment::EnrollmentDeletePaymentUseCase;
 use crate::application::enrollment::pay::{EnrollmentPayInput, EnrollmentPayUseCase};
 use crate::domain::enrollment::repository::EnrollmentRepo;
 use crate::presentation::confirm_delete_modal;
@@ -253,8 +254,12 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                     .map(|c| (Some(c.clone()), e.pricing_type().to_owned()))
             })
             .unwrap_or((None, "monthly".into()));
+        let is_editing = state.pay_enrollment_id
+            .and_then(|eid| state.enrollments.iter().find(|e| e.id() == eid))
+            .map(|e| e.is_paid())
+            .unwrap_or(false);
 
-        egui::Window::new("Registrar pago")
+        egui::Window::new(if is_editing { "Editar pago" } else { "Registrar pago" })
             .collapsible(false)
             .resizable(false)
             .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
@@ -340,7 +345,7 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                                         notes,
                                     }) {
                                     Ok(_) => {
-                                        push_success(notifs, "Pago registrado");
+                                        push_success(notifs, if is_editing { "Pago actualizado" } else { "Pago registrado" });
                                         state.show_payment_form        = false;
                                         state.pay_enrollment_id        = None;
                                         state.pay_amount               = String::new();
@@ -363,8 +368,9 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
     }
 
     // ── Enrollments table ─────────────────────────────────────────────────────
-    let mut delete_id: Option<uuid::Uuid> = None;
-    let mut pay_id:    Option<uuid::Uuid> = None;
+    let mut delete_id:         Option<uuid::Uuid> = None;
+    let mut pay_id:            Option<uuid::Uuid> = None;
+    let mut delete_payment_id: Option<uuid::Uuid> = None;
 
     TableBuilder::new(ui)
         .striped(true)
@@ -399,8 +405,12 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
                         }
                     });
                     row.col(|ui| {
-                        if ui.add_enabled(!enrollment.is_paid(), egui::Button::new("Pagar").small()).clicked() {
+                        let pay_label = if enrollment.is_paid() { "Editar" } else { "Pagar" };
+                        if ui.small_button(pay_label).clicked() {
                             pay_id = Some(enrollment.id());
+                        }
+                        if ui.add_enabled(enrollment.is_paid(), egui::Button::new("Eliminar pago").small()).clicked() {
+                            delete_payment_id = Some(enrollment.id());
                         }
                         if ui.small_button(egui_phosphor::regular::TRASH).clicked() {
                             delete_id = Some(enrollment.id());
@@ -425,15 +435,34 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
             .find(|e| e.id() == eid)
             .map(|e| e.pricing_type().to_owned())
             .unwrap_or_else(|| "monthly".into());
+        let paid_info = state.enrollments.iter()
+            .find(|e| e.id() == eid)
+            .filter(|e| e.is_paid())
+            .map(|e| (
+                e.paid_amount_cents(),
+                e.payment_method().map(|s| s.to_owned()),
+                e.paid_at(),
+                e.payment_notes().map(|s| s.to_owned()),
+            ));
 
         state.pay_enrollment_id = Some(eid);
-        state.pay_amount        = String::new();
-        state.pay_method        = "cash".into();
-        state.pay_date          = today();
-        state.pay_notes         = String::new();
+        match paid_info {
+            Some((amount_cents, method, paid_at, notes)) => {
+                state.pay_amount = amount_cents.map(|c| format!("{:.2}", c as f64 / 100.0)).unwrap_or_default();
+                state.pay_method = method.unwrap_or_else(|| "cash".into());
+                state.pay_date   = paid_at.map(|dt| dt.date_naive()).unwrap_or_else(today);
+                state.pay_notes  = notes.unwrap_or_default();
+            }
+            None => {
+                state.pay_amount = String::new();
+                state.pay_method = "cash".into();
+                state.pay_date   = today();
+                state.pay_notes  = String::new();
+                // Pre-fill amount
+                auto_fill_amount(state, &course, &pricing_type);
+            }
+        }
         state.show_payment_form = true;
-        // Pre-fill amount
-        auto_fill_amount(state, &course, &pricing_type);
     }
 
     if let Some(id) = delete_id {
@@ -444,6 +473,20 @@ pub fn show(ui: &mut egui::Ui, client: &Arc<Mutex<Client>>, state: &mut Students
         match EnrollmentDeleteUseCase::new(make_enrollment_repo(client)).execute(id) {
             Ok(_)  => {
                 push_success(notifs, "Inscripción eliminada");
+                state.needs_reload_enrollments = true;
+            }
+            Err(e) => push_error(notifs, e.to_string()),
+        }
+    }
+
+    if let Some(id) = delete_payment_id {
+        state.confirm_delete_payment = Some(id);
+    }
+
+    if let Some(id) = confirm_delete_modal(ui.ctx(), &mut state.confirm_delete_payment) {
+        match EnrollmentDeletePaymentUseCase::new(make_enrollment_repo(client)).execute(id) {
+            Ok(_)  => {
+                push_success(notifs, "Pago eliminado");
                 state.needs_reload_enrollments = true;
             }
             Err(e) => push_error(notifs, e.to_string()),

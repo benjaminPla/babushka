@@ -166,4 +166,20 @@ impl EnrollmentRepo for EnrollmentPgRepo {
         if n == 0 { return Err(EnrollmentRepoError::NotFound(id)); }
         Ok(())
     }
+
+    fn delete_payment(&self, id: Uuid) -> Result<(), EnrollmentRepoError> {
+        let n = self.client.lock().unwrap()
+            .execute(
+                "UPDATE enrollments
+                 SET paid_amount_cents = NULL,
+                     payment_method    = NULL,
+                     paid_at           = NULL,
+                     payment_notes     = NULL
+                 WHERE id = $1",
+                &[&id],
+            )
+            .map_err(pg_err)?;
+        if n == 0 { return Err(EnrollmentRepoError::NotFound(id)); }
+        Ok(())
+    }
 }

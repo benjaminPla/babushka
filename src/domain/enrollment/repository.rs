@@ -14,6 +14,7 @@ pub trait EnrollmentRepo: Send + Sync {
     fn sum_paid_between(&self, from: DateTime<Utc>, to: DateTime<Utc>) -> Result<i32, EnrollmentRepoError>;
     fn sum_expected_in_month(&self, from: NaiveDate, to: NaiveDate)    -> Result<i32, EnrollmentRepoError>;
     fn pay(&self, id: Uuid, amount_cents: i32, method: PaymentMethod, paid_at: DateTime<Utc>, notes: Option<String>) -> Result<(), EnrollmentRepoError>;
+    fn delete_payment(&self, id: Uuid)                               -> Result<(), EnrollmentRepoError>;
 }
 
 #[derive(Debug, thiserror::Error)]
