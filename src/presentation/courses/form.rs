@@ -7,7 +7,7 @@ use crate::application::course::{
     update::{CourseUpdateInput, CourseUpdateUseCase},
 };
 use crate::domain::{course::repository::CourseRepo, shared::value_objects::age_group::AgeGroup};
-use crate::presentation::{push_error, push_success, Notifications};
+use crate::presentation::{filter_select, push_error, push_success, Notifications};
 use crate::theme::{colors, sizes};
 
 use super::{clear_course_form, parse_price, CoursesState};
@@ -34,20 +34,16 @@ pub fn show(ctx: &egui::Context, repo: &Arc<dyn CourseRepo>, state: &mut Courses
                 ui.add_space(sizes::SPACING_SMALL);
 
                 ui.label(egui::RichText::new("Profesor").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                egui::ComboBox::from_id_salt("course_form_teacher")
-                    .width(ui.available_width())
-                    .selected_text(
-                        state.teacher_id
-                            .and_then(|id| state.teachers.iter().find(|t| t.id == id))
-                            .map(|t| format!("{} {}", t.first_name, t.last_name))
-                            .unwrap_or_else(|| "Seleccionar...".into()),
-                    )
-                    .show_ui(ui, |ui| {
-                        for t in &state.teachers {
-                            let label = format!("{} {}", t.first_name, t.last_name);
-                            ui.selectable_value(&mut state.teacher_id, Some(t.id), label);
-                        }
-                    });
+                filter_select(
+                    ui,
+                    "course_form_teacher",
+                    &mut state.teacher_id,
+                    &mut state.teacher_filter,
+                    &state.teachers,
+                    |t| t.id,
+                    |t| format!("{} {}", t.first_name, t.last_name),
+                    "Seleccionar...",
+                );
                 ui.add_space(sizes::SPACING_SMALL);
 
                 ui.label(egui::RichText::new("Grupo").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));

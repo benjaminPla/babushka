@@ -87,6 +87,82 @@ fn days_in_month(year: i32, month: u32) -> u32 {
 }
 
 
+/// `add_sized` forces `Layout::centered_and_justified`, which centers the widget's
+/// contents — wrong for buttons/labels we want left-aligned. This stretches a
+/// widget to the full available width while keeping left-aligned content.
+fn add_full_width<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    ui.allocate_ui_with_layout(
+        egui::vec2(ui.available_width(), 0.0),
+        egui::Layout::top_down_justified(egui::Align::Min),
+        add_contents,
+    ).inner
+}
+
+/// Searchable selector: a plain toggle button opens a popup containing a filter
+/// text box + scrollable list. `ComboBox` isn't built for this — its popup closes
+/// on any click inside it (including focusing the filter box), so this uses a
+/// manual `Popup::from_toggle_button_response`, which only toggles on the button
+/// itself and is closed explicitly (`ui.close()`) on selection. Returns true if
+/// the selection changed this frame.
+pub fn filter_select<T>(
+    ui: &mut egui::Ui,
+    id_salt: impl std::hash::Hash,
+    selected: &mut Option<Uuid>,
+    filter: &mut String,
+    items: &[T],
+    id_of: impl Fn(&T) -> Uuid,
+    label_of: impl Fn(&T) -> String,
+    placeholder: &str,
+) -> bool {
+    let popup_id = ui.make_persistent_id(("filter_select", &id_salt));
+
+    let selected_text = selected
+        .and_then(|id| items.iter().find(|it| id_of(it) == id))
+        .map(&label_of)
+        .unwrap_or_else(|| placeholder.to_owned());
+
+    let response = add_full_width(ui, |ui| ui.add(egui::Button::new(selected_text)));
+
+    let mut changed = false;
+
+    egui::Popup::from_toggle_button_response(&response)
+        .id(popup_id)
+        .align(egui::RectAlign::BOTTOM_START)
+        .width(response.rect.width())
+        .frame(egui::Frame::new()
+            .fill(colors::BLACK)
+            .stroke(egui::Stroke::new(sizes::STROKE_SMALL, colors::WHITE))
+            .inner_margin(egui::Margin::same(sizes::MARGIN_NORMAL))
+        )
+        .show(|ui| {
+            let edit = ui.add_sized([ui.available_width(), 0.0], egui::TextEdit::singleline(filter).hint_text("Filtrar..."));
+            if response.clicked() {
+                edit.request_focus();
+            }
+            ui.separator();
+
+            egui::ScrollArea::vertical()
+                .max_height(200.0)
+                .show(ui, |ui| {
+                    let needle = filter.trim().to_lowercase();
+                    for item in items {
+                        let id    = id_of(item);
+                        let label = label_of(item);
+                        if !needle.is_empty() && !label.to_lowercase().contains(&needle) { continue; }
+
+                        if add_full_width(ui, |ui| ui.selectable_label(*selected == Some(id), &label)).clicked() {
+                            *selected = Some(id);
+                            filter.clear();
+                            changed = true;
+                            ui.close();
+                        }
+                    }
+                });
+        });
+
+    changed
+}
+
 pub fn confirm_delete_modal(ctx: &egui::Context, pending: &mut Option<Uuid>) -> Option<Uuid> {
     let Some(id) = *pending else { return None };
     let mut confirmed = None;

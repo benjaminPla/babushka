@@ -40,8 +40,9 @@ pub struct CoursesState {
     pub show_modal:   bool,
     pub editing_id:   Option<Uuid>,
     pub name:         String,
-    pub teacher_id:   Option<Uuid>,
-    pub teachers:     Vec<TeacherDto>,
+    pub teacher_id:     Option<Uuid>,
+    pub teachers:       Vec<TeacherDto>,
+    pub teacher_filter: String,
     pub age_group:    AgeGroup,
     pub capacity:               String,
     pub month_price_cash:       String,
@@ -81,8 +82,9 @@ impl Default for CoursesState {
             show_modal:   false,
             editing_id:   None,
             name:         String::new(),
-            teacher_id:   None,
-            teachers:     Vec::new(),
+            teacher_id:     None,
+            teachers:       Vec::new(),
+            teacher_filter: String::new(),
             age_group:    AgeGroup::Adult,
             capacity:             String::new(),
             month_price_cash:     String::new(),
@@ -126,8 +128,9 @@ pub fn clear_course_form(state: &mut CoursesState) {
     state.show_modal   = false;
     state.editing_id   = None;
     state.name         = String::new();
-    state.teacher_id   = None;
-    state.age_group    = AgeGroup::Adult;
+    state.teacher_id     = None;
+    state.teacher_filter = String::new();
+    state.age_group      = AgeGroup::Adult;
     state.capacity             = String::new();
     state.month_price_cash     = String::new();
     state.month_price_transfer = String::new();

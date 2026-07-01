@@ -23,7 +23,7 @@ use crate::infrastructure::course::CoursePgRepo;
 use crate::infrastructure::course_period::CoursePeriodPgRepo;
 use crate::infrastructure::enrollment::EnrollmentPgRepo;
 use crate::infrastructure::student::StudentPgRepo;
-use crate::presentation::{date_selector, fmt_ars, push_error, push_success, Notifications};
+use crate::presentation::{date_selector, filter_select, fmt_ars, push_error, push_success, Notifications};
 use crate::theme::{colors, sizes};
 
 const PAYMENT_METHODS: &[(&str, &str)] = &[
@@ -216,85 +216,53 @@ pub fn show(
             .show(ui.ctx(), |ui| {
                 ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
                     ui.label(egui::RichText::new("Alumno").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                    egui::ComboBox::from_id_salt("dash_enroll_student")
-                        .width(ui.available_width())
-                        .selected_text(
-                            state.enroll_sel_student
-                                .and_then(|id| state.enroll_students.iter().find(|s| s.id == id))
-                                .map(|s| format!("{} {}", s.first_name, s.last_name))
-                                .unwrap_or_else(|| "Seleccionar...".into()),
-                        )
-                        .show_ui(ui, |ui| {
-                            ui.add(egui::TextEdit::singleline(&mut state.enroll_student_filter)
-                                .id(egui::Id::new("dash_enroll_student_filter")));
-                            let sf = state.enroll_student_filter.to_lowercase();
-                            let students: Vec<_> = state.enroll_students.iter()
-                                .filter(|s| {
-                                    let name = format!("{} {}", s.first_name, s.last_name).to_lowercase();
-                                    sf.is_empty() || name.contains(&sf)
-                                })
-                                .cloned()
-                                .collect();
-                            for s in &students {
-                                let label = format!("{} {}", s.first_name, s.last_name);
-                                ui.selectable_value(&mut state.enroll_sel_student, Some(s.id), label);
-                            }
-                        });
+                    filter_select(
+                        ui,
+                        "dash_enroll_student",
+                        &mut state.enroll_sel_student,
+                        &mut state.enroll_student_filter,
+                        &state.enroll_students,
+                        |s| s.id,
+                        |s| format!("{} {}", s.first_name, s.last_name),
+                        "Seleccionar...",
+                    );
                     ui.add_space(sizes::SPACING_SMALL);
 
                     ui.label(egui::RichText::new("Curso").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                    egui::ComboBox::from_id_salt("dash_enroll_course")
-                        .width(ui.available_width())
-                        .selected_text(
-                            state.enroll_sel_course
-                                .and_then(|id| state.enroll_courses.iter().find(|c| c.id == id))
-                                .map(|c| c.name.clone())
-                                .unwrap_or_else(|| "Seleccionar...".into()),
-                        )
-                        .show_ui(ui, |ui| {
-                            ui.add(egui::TextEdit::singleline(&mut state.enroll_course_filter)
-                                .id(egui::Id::new("dash_enroll_course_filter")));
-                            let cf = state.enroll_course_filter.to_lowercase();
-                            let courses: Vec<_> = state.enroll_courses.iter()
-                                .filter(|c| cf.is_empty() || c.name.to_lowercase().contains(&cf))
-                                .cloned()
-                                .collect();
-                            for c in &courses {
-                                if ui.selectable_value(&mut state.enroll_sel_course, Some(c.id), &c.name).clicked() {
-                                    if let Ok(ps) = CoursePeriodGetByCourseUseCase::new(
-                                        Arc::new(CoursePeriodPgRepo::new(Arc::clone(client)))
-                                    ).execute(c.id) {
-                                        state.enroll_periods       = ps;
-                                        state.enroll_sel_period    = None;
-                                        state.enroll_period_filter = String::new();
-                                        state.enroll_course_filter = String::new();
-                                    }
-                                }
+                    let course_changed = filter_select(
+                        ui,
+                        "dash_enroll_course",
+                        &mut state.enroll_sel_course,
+                        &mut state.enroll_course_filter,
+                        &state.enroll_courses,
+                        |c| c.id,
+                        |c| c.name.clone(),
+                        "Seleccionar...",
+                    );
+                    if course_changed {
+                        if let Some(course_id) = state.enroll_sel_course {
+                            if let Ok(ps) = CoursePeriodGetByCourseUseCase::new(
+                                Arc::new(CoursePeriodPgRepo::new(Arc::clone(client)))
+                            ).execute(course_id) {
+                                state.enroll_periods       = ps;
+                                state.enroll_sel_period    = None;
+                                state.enroll_period_filter = String::new();
                             }
-                        });
+                        }
+                    }
                     ui.add_space(sizes::SPACING_SMALL);
 
                     ui.label(egui::RichText::new("Período").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
-                    egui::ComboBox::from_id_salt("dash_enroll_period")
-                        .width(ui.available_width())
-                        .selected_text(
-                            state.enroll_sel_period
-                                .and_then(|id| state.enroll_periods.iter().find(|p| p.id == id))
-                                .map(|p| p.label.clone())
-                                .unwrap_or_else(|| "Seleccionar...".into()),
-                        )
-                        .show_ui(ui, |ui| {
-                            ui.add(egui::TextEdit::singleline(&mut state.enroll_period_filter)
-                                .id(egui::Id::new("dash_enroll_period_filter")));
-                            let pf = state.enroll_period_filter.to_lowercase();
-                            let periods: Vec<_> = state.enroll_periods.iter()
-                                .filter(|p| pf.is_empty() || p.label.to_lowercase().contains(&pf))
-                                .cloned()
-                                .collect();
-                            for p in &periods {
-                                ui.selectable_value(&mut state.enroll_sel_period, Some(p.id), &p.label);
-                            }
-                        });
+                    filter_select(
+                        ui,
+                        "dash_enroll_period",
+                        &mut state.enroll_sel_period,
+                        &mut state.enroll_period_filter,
+                        &state.enroll_periods,
+                        |p| p.id,
+                        |p| p.label.clone(),
+                        "Seleccionar...",
+                    );
                     ui.add_space(sizes::SPACING_SMALL);
 
                     ui.label(egui::RichText::new("Precio").color(colors::LIGHT_GRAY).size(sizes::FONT_SIZE_NORMAL));
