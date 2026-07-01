@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.0] - 2026-07-01
+
+### Added
+- Edit and delete payment actions on a paid enrollment in the student detail view: correct a payment in place or clear it back to pendiente without deleting the enrollment
+- Searchable filter_select picker, replacing plain ComboBox dropdowns for course/period/teacher/student selection across the student detail, course form, and dashboard enroll modals
+
 ## [1.1.0] - 2026-06-18
 
 ### Added
